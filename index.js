@@ -10,10 +10,7 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-    ],
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   })
 );
@@ -32,6 +29,25 @@ const client = new MongoClient(uri, {
   },
 });
 
+// const logger = async (req, res, next) => {
+//   console.log("called:", req.host, req.originalUrl);
+//   next();
+// };
+const verifyToken = async (req, res, next) => {
+  const token = req.cookie?.token;
+  console.log("value of token in middleware", token);
+  if (!token) {
+    return res.status(401).send({ message: "inAuthorized access" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unAuthorized access" });
+    }
+    console.log("value in the token", decoded);
+    req.user = decoded;
+    next();
+  });
+};
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -40,11 +56,36 @@ async function run() {
     const usersCollection = client.db("PerfectProfile").collection("users");
     const predefinedTemplatesCollection = client.db("PerfectProfile").collection("predefinedTemplates");
 
-
     /*****************Start******************************** *
-    
     /*********Users**********/
-    // Get all Users data from db
+
+    // auth related system
+
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1hr",
+      });
+      res
+        .cookie("access to the token", token, {
+          httpOnly: true,
+          secure: false,
+          // sameSite: "none",
+        })
+        .send({ success: true });
+    });
+
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("logging out", user);
+      res
+        .clearCookie("access to the token", {
+          maxAge: 0,
+        })
+        .send({ success: true });
+    });
+
     app.get(`/users`, async (req, res) => {
       const cursor = usersCollection.find();
       const result = await cursor.toArray();
