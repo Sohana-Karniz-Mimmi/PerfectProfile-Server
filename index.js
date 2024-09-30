@@ -37,7 +37,7 @@ const verifyToken = async (req, res, next) => {
   const token = req.cookie?.token;
   console.log("value of token in middleware", token);
   if (!token) {
-    return res.status(401).send({ message: "inAuthorized access" });
+    return res.status(401).send({ message: "unAuthorized access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
@@ -71,7 +71,6 @@ async function run() {
         .cookie("access to the token", token, {
           httpOnly: true,
           secure: false,
-          // sameSite: "none",
         })
         .send({ success: true });
     });
