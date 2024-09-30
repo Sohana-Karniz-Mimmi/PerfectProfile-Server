@@ -38,19 +38,37 @@ async function run() {
     // await client.connect();
 
     const usersCollection = client.db("PerfectProfile").collection("users");
+    const predefinedTemplatesCollection = client.db("PerfectProfile").collection("predefinedTemplates");
 
 
     /*****************Start******************************** *
     
     /*********Users**********/
-    // Get all tour-package data from db
+    // Get all Users data from db
     app.get(`/users`, async (req, res) => {
       const cursor = usersCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
+
+
+/*********Predefined Templates**********/
+    app.get(`/predefined-templates`, async (req, res) => {
+      const cursor = predefinedTemplatesCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    app.get(`/predefined-templates/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { templateItem: id};
+      const result = await predefinedTemplatesCollection.findOne(query);
+      res.send(result);
+    })
+    
+    
  
-    /*******************End***************************** */
+    /*******************End************************** */
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
