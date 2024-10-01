@@ -31,6 +31,25 @@ const client = new MongoClient(uri, {
   },
 });
 
+// const logger = async (req, res, next) => {
+//   console.log("called:", req.host, req.originalUrl);
+//   next();
+// };
+const verifyToken = async (req, res, next) => {
+  const token = req.cookie?.token;
+  console.log("value of token in middleware", token);
+  if (!token) {
+    return res.status(401).send({ message: "inAuthorized access" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unAuthorized access" });
+    }
+    console.log("value in the token", decoded);
+    req.user = decoded;
+    next();
+  });
+};
 async function run() {
   try {
     // await client.connect();
@@ -42,6 +61,38 @@ async function run() {
 
     /*********Users**********/
     // Get all user data from db
+    const predefinedTemplatesCollection = client.db("PerfectProfile").collection("predefinedTemplates");
+
+    /*****************Start******************************** *
+    /*********Users**********/
+
+    // auth related system
+
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1hr",
+      });
+      res
+        .cookie("access to the token", token, {
+          httpOnly: true,
+          secure: false,
+          // sameSite: "none",
+        })
+        .send({ success: true });
+    });
+
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("logging out", user);
+      res
+        .clearCookie("access to the token", {
+          maxAge: 0,
+        })
+        .send({ success: true });
+    });
+
     app.get(`/users`, async (req, res) => {
       const cursor = usersCollection.find();
       const result = await cursor.toArray();
@@ -149,7 +200,24 @@ async function run() {
       res.redirect( "http://localhost:5173");
     });
 
-    /*******************End***************************** */
+
+/*********Predefined Templates**********/
+    app.get(`/predefined-templates`, async (req, res) => {
+      const cursor = predefinedTemplatesCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    app.get(`/predefined-templates/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { templateItem: id};
+      const result = await predefinedTemplatesCollection.findOne(query);
+      res.send(result);
+    })
+    
+    
+ 
+    /*******************End************************** */
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
