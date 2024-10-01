@@ -2,6 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const axios = require("axios");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
@@ -10,14 +11,12 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-    ],
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   })
 );
 app.use(express.json());
+app.use(express.urlencoded());
 app.use(cookieParser());
 
 // const uri = `mongodb://localhost:27017`;
@@ -34,34 +33,136 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
     const usersCollection = client.db("PerfectProfile").collection("users");
+    const paymentCollection = client.db("PerfectProfile").collection("payment");
 
+    /*****************Start************************************** */
 
-    /*****************Start************************************** *
-    
     /*********Users**********/
-    // Get all tour-package data from db
+    // Get all user data from db
     app.get(`/users`, async (req, res) => {
       const cursor = usersCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
- 
+
+    // Payment intent
+    app.post("/create-payment", async (req, res) => {
+      const paymentInfo = req.body;
+      console.log(paymentInfo);
+
+      const initialData = {
+        store_id: "perfe66fa8d4bbb129",
+        store_passwd: "perfe66fa8d4bbb129@ssl",
+        total_amount: paymentInfo.amount,
+        currency: paymentInfo.currency,
+        tran_id: paymentInfo.tran_id,
+        success_url: "http://localhost:5000/success-payment",
+        fail_url: "http://localhost:5000/fail",
+        cancel_url: "http://localhost:5000/cancel",
+        cus_name: paymentInfo.userName,
+        cus_email: paymentInfo.email,
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: paymentInfo.phone,
+        cus_fax: "01711111111",
+        shipping_method: "NO",
+        product_name: paymentInfo.productName,
+        product_category: paymentInfo.productName,
+        product_profile: "general",
+        multi_card_name: "mastercard,visacard,amexcard",
+      };
+
+      try {
+        const response = await axios({
+          method: "POST",
+          url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+          data: initialData,
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        });
+
+        const saveData = {
+          amount: paymentInfo.amount,
+          cus_name: paymentInfo.userName,
+          cus_email: paymentInfo.email,
+          product_name: paymentInfo.productName,
+          tran_id: paymentInfo.tran_id,
+          status: "pending",
+        };
+
+        console.log(saveData);
+        const paymentData = await paymentCollection.insertOne(saveData);
+
+        if (paymentData.insertedId) {
+          res.send({ paymentUrl: response.data.GatewayPageURL });
+        } else {
+          res.status(500).send({ message: "Failed to save payment data" });
+        }
+      } catch (error) {
+        console.error("Error during payment process:", error);
+        res
+          .status(500)
+          .send({ message: "An error occurred during the payment process" });
+      }
+    });
+
+    // Success payment
+    app.post("/success-payment", async (req, res) => {
+      const successData = req.body;
+      console.log(successData);
+      if (successData.status !== "VALID") {
+        throw new error("Unauthorized payment");
+      }
+
+      // update db
+      const query = { tran_id: successData.tran_id };
+      const update = {
+        $set: {
+          status: "Success",
+        },
+      };
+      const updateData = await paymentCollection.updateOne(query, update);
+      console.log("success data", successData);
+      console.log("update data", updateData);
+      // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'http://localhost:5173/predefined-templates' });
+
+      res.redirect("http://localhost:5173/predefined-templates");
+    });
+
+    // fail payment
+    app.post("/fail", async (req, res) => {
+      res.redirect("http://localhost:5173/pricing");
+      throw new error("Please try again");
+    });
+
+    // cancel payment
+    app.post("/cancel", async (req, res) => {
+
+      res.redirect( "http://localhost:5173");
+    });
+
     /*******************End***************************** */
 
     // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
   } finally {
-    // Ensures that the client will close when you finish/error
+    // Ensure that the client will close when you finish/error
+    // Uncomment if you want to close the connection when done
     // await client.close();
   }
 }
+
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
