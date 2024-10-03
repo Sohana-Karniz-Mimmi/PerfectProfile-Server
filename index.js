@@ -61,7 +61,12 @@ async function run() {
 
     /*********Users**********/
     // Get all user data from db
-    const predefinedTemplatesCollection = client.db("PerfectProfile").collection("predefinedTemplates");
+    const predefinedTemplatesCollection = client
+      .db("PerfectProfile")
+      .collection("predefinedTemplates");
+    const customizationTemplateCollection = client
+      .db("PerfectProfile")
+      .collection("customizationTemplate");
 
     /*****************Start******************************** *
     /*********Users**********/
@@ -196,27 +201,26 @@ async function run() {
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-
-      res.redirect( "http://localhost:5173");
+      res.redirect("http://localhost:5173");
     });
 
-
-/*********Predefined Templates**********/
+    /*********Predefined Templates**********/
     app.get(`/predefined-templates`, async (req, res) => {
       const cursor = predefinedTemplatesCollection.find();
       const result = await cursor.toArray();
       res.send(result);
-    })
+    });
 
     app.get(`/predefined-templates/:id`, async (req, res) => {
       const id = req.params.id;
-      const query = { templateItem: id};
+      const query = { templateItem: id };
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
-    })
-    
-    
- 
+    });
+
+    // ===================================================User Information For Template Collection ====================================>>
+
+
     /*******************End************************** */
 
     // Send a ping to confirm a successful connection
