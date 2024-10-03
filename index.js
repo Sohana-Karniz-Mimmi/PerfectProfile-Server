@@ -39,7 +39,7 @@ const verifyToken = async (req, res, next) => {
   const token = req.cookie?.token;
   console.log("value of token in middleware", token);
   if (!token) {
-    return res.status(401).send({ message: "inAuthorized access" });
+    return res.status(401).send({ message: "unAuthorized access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
@@ -76,7 +76,6 @@ async function run() {
         .cookie("access to the token", token, {
           httpOnly: true,
           secure: false,
-          // sameSite: "none",
         })
         .send({ success: true });
     });
@@ -91,6 +90,18 @@ async function run() {
         .send({ success: true });
     });
 
+    // user related work
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user already exists" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
     app.get(`/users`, async (req, res) => {
       const cursor = usersCollection.find();
       const result = await cursor.toArray();
@@ -241,7 +252,6 @@ async function run() {
       req.user = { _id: "user-id-123" }; // Replace with actual user authentication logic
       next();
     });
-
 
     // Endpoint to generate shareable resume link
     app.post("/share-resume", async (req, res) => {
