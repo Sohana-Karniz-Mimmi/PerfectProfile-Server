@@ -282,6 +282,11 @@ async function run() {
       }
     });
 
+    app.get("/share-resume", async (req, res) => {
+      const result = await resumeCollection.find().toArray();
+      res.send(result);
+    });
+
     // Endpoint to view the resume via shareable link
     app.get("/resume/:customUrl", async (req, res) => {
       const { customUrl } = req.params;
