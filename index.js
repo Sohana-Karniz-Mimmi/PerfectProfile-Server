@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: ["http://localhost:5173", "http://localhost:5174", "https://perfect-profile-resume.netlify.app"],
     credentials: true,
   })
 );
@@ -121,9 +121,9 @@ async function run() {
         total_amount: paymentInfo.amount,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url: "http://localhost:5000/success-payment",
-        fail_url: "http://localhost:5000/fail",
-        cancel_url: "http://localhost:5000/cancel",
+        success_url: "https://perfect-profile-server.vercel.app/success-payment",
+        fail_url: "https://perfect-profile-server.vercel.app/fail",
+        cancel_url: "https://perfect-profile-server.vercel.app/cancel",
         cus_name: paymentInfo.userName,
         cus_email: paymentInfo.email,
         cus_add1: "Dhaka",
@@ -194,20 +194,20 @@ async function run() {
       const updateData = await paymentCollection.updateOne(query, update);
       console.log("success data", successData);
       console.log("update data", updateData);
-      // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'http://localhost:5173/predefined-templates' });
+      // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect("http://localhost:5173/predefined-templates");
+      res.redirect("https://perfect-profile-resume.netlify.app/predefined-templates");
     });
 
     // fail payment
     app.post("/fail", async (req, res) => {
-      res.redirect("http://localhost:5173/pricing");
+      res.redirect("https://perfect-profile-resume.netlify.app/pricing");
       throw new error("Please try again");
     });
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("http://localhost:5173");
+      res.redirect("https://perfect-profile-resume.netlify.app");
     });
 
     /*********Predefined Templates**********/
