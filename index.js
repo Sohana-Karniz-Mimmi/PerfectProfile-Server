@@ -61,7 +61,9 @@ async function run() {
 
     /*********Users**********/
     // Get all user data from db
-    const predefinedTemplatesCollection = client.db("PerfectProfile").collection("predefinedTemplates");
+    const predefinedTemplatesCollection = client
+      .db("PerfectProfile")
+      .collection("predefinedTemplates");
 
     /*****************Start******************************** *
     /*********Users**********/
@@ -92,6 +94,18 @@ async function run() {
         .send({ success: true });
     });
 
+    // user related work
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user already exists" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
     app.get(`/users`, async (req, res) => {
       const cursor = usersCollection.find();
       const result = await cursor.toArray();
@@ -195,27 +209,23 @@ async function run() {
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-
-      res.redirect( "http://localhost:5173");
+      res.redirect("http://localhost:5173");
     });
 
-
-/*********Predefined Templates**********/
+    /*********Predefined Templates**********/
     app.get(`/predefined-templates`, async (req, res) => {
       const cursor = predefinedTemplatesCollection.find();
       const result = await cursor.toArray();
       res.send(result);
-    })
+    });
 
     app.get(`/predefined-templates/:id`, async (req, res) => {
       const id = req.params.id;
-      const query = { templateItem: id};
+      const query = { templateItem: id };
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
-    })
-    
-    
- 
+    });
+
     /*******************End************************** */
 
     // Send a ping to confirm a successful connection
