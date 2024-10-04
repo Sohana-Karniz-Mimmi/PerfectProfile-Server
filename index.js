@@ -55,21 +55,17 @@ async function run() {
     // await client.connect();
 
     const usersCollection = client.db("PerfectProfile").collection("users");
-    const paymentCollection = client.db("PerfectProfile").collection("payment");
-
-    /*****************Start************************************** */
-
-    /*********Users**********/
-    // Get all user data from db
     const predefinedTemplatesCollection = client
       .db("PerfectProfile")
       .collection("predefinedTemplates");
+    const paymentCollection = client.db("PerfectProfile").collection("payment");
+    const resumeCollection = client
+      .db("PerfectProfile")
+      .collection("customizeResume");
 
-    /*****************Start******************************** *
-    /*********Users**********/
+    /*****************Start*********************************/
 
-    // auth related system
-
+    /*********auth related system**********/
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       console.log(user);
@@ -111,6 +107,8 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+
+    /*********Payment System**********/
 
     // Payment intent
     app.post("/create-payment", async (req, res) => {
@@ -224,6 +222,84 @@ async function run() {
       const query = { templateItem: id };
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
+    });
+
+    /*********Customization Resume**********/
+    // // Save a customize-resume data in db
+    // app.post(`/customize-resume`, async (req, res) => {
+    //   const customizeResume = req.body;
+    //   const result = await resumeCollection.insertOne(customizeResume);
+    //   res.send(result);
+    // });
+
+    // // Get a single customize-resume data from db
+    // app.get("/customize-resume/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { _id: new ObjectId(id) };
+    //   const result = await resumeCollection.findOne(query);
+    //   res.send(result);
+    // });
+
+    /*********Live URL Generate**********/
+
+    const generateCustomUrl = () => {
+      return Math.random().toString(36).substring(2, 15);
+    };
+
+    // Middleware to simulate user authentication
+    app.use((req, res, next) => {
+      // Mock user object for demonstration purposes
+      req.user = { _id: "user-id-123" }; // Replace with actual user authentication logic
+      next();
+    });
+
+    // Endpoint to generate shareable resume link
+    app.post("/share-resume", async (req, res) => {
+      const userId = req.user._id; // User ID from the authenticated user
+      const userData = req.body; // Get the customized resume data from the request body
+      const customUrl = generateCustomUrl(); // Generate a unique URL for the resume
+      const resumeLink = `https://perfectprofile.com/resume/${customUrl}`;
+
+      // Create a new resume document with both the resumeLink and userData
+      const newResume = {
+        userId: userId, // Store the user ID
+        resumeLink: resumeLink, // Store the generated resume link
+        userData: userData, // Store the customized resume data
+        createdAt: new Date(), // Optionally add a timestamp
+      };
+
+      try {
+        // Insert the new resume document into the collection
+        await resumeCollection.insertOne(newResume);
+        // Respond with success and the shareable link
+        res.send({ success: true, shareLink: resumeLink });
+      } catch (error) {
+        console.error("Error inserting resume link:", error);
+        // Respond with an error message
+        res
+          .status(500)
+          .send({ success: false, message: "Failed to generate share link" });
+      }
+    });
+
+    // Endpoint to view the resume via shareable link
+    app.get("/resume/:customUrl", async (req, res) => {
+      const { customUrl } = req.params;
+
+      try {
+        const resume = await resumeCollection.findOne({
+          resumeLink: `https://perfectprofile.com/resume/${customUrl}`,
+        });
+
+        if (!resume) {
+          return res.status(404).send("Resume not found");
+        }
+
+        // Render the resume using the `resumeTemplate`
+        res.render("resumeTemplate", { resume });
+      } catch (error) {
+        res.status(500).send("Server error");
+      }
     });
 
     /*******************End************************** */
