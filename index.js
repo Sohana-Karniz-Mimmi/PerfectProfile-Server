@@ -256,26 +256,23 @@ async function run() {
     // Endpoint to generate shareable resume link
     app.post("/share-resume", async (req, res) => {
       const userId = req.user._id; // User ID from the authenticated user
-      const userData = req.body; // Get the customized resume data from the request body
-      const customUrl = generateCustomUrl(); // Generate a unique URL for the resume
+      const userData = req.body; 
+      const customUrl = generateCustomUrl(); 
       const resumeLink = `https://perfectprofile.com/resume/${customUrl}`;
 
       // Create a new resume document with both the resumeLink and userData
       const newResume = {
         userId: userId, // Store the user ID
-        resumeLink: resumeLink, // Store the generated resume link
-        userData: userData, // Store the customized resume data
-        createdAt: new Date(), // Optionally add a timestamp
+        resumeLink: resumeLink,
+        userData: userData, 
+        createdAt: new Date(),
       };
 
       try {
-        // Insert the new resume document into the collection
         await resumeCollection.insertOne(newResume);
-        // Respond with success and the shareable link
         res.send({ success: true, shareLink: resumeLink });
       } catch (error) {
         console.error("Error inserting resume link:", error);
-        // Respond with an error message
         res
           .status(500)
           .send({ success: false, message: "Failed to generate share link" });
