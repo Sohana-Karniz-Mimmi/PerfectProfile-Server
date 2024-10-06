@@ -269,8 +269,18 @@ async function run() {
       };
 
       try {
-        await resumeCollection.insertOne(newResume);
-        res.send({ success: true, shareLink: resumeLink });
+        // Insert the new resume document into the collection
+        const result = await resumeCollection.insertOne(newResume);
+        // Respond with success and the shareable link
+        const sendInfo = {
+          templateID: result.insertedId,
+          userData: userData,
+        };
+        res.send({
+          success: true,
+          shareLink: resumeLink,
+          sendInfo,
+        });
       } catch (error) {
         console.error("Error inserting resume link:", error);
         res
