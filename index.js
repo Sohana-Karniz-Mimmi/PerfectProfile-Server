@@ -11,7 +11,11 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174", "https://perfect-profile-resume.netlify.app"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://perfect-profile-resume.netlify.app",
+    ],
     credentials: true,
   })
 );
@@ -121,7 +125,8 @@ async function run() {
         total_amount: paymentInfo.amount,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url: "https://perfect-profile-server.vercel.app/success-payment",
+        success_url:
+          "https://perfect-profile-server.vercel.app/success-payment",
         fail_url: "https://perfect-profile-server.vercel.app/fail",
         cancel_url: "https://perfect-profile-server.vercel.app/cancel",
         cus_name: paymentInfo.userName,
@@ -196,7 +201,9 @@ async function run() {
       console.log("update data", updateData);
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect("https://perfect-profile-resume.netlify.app/predefined-templates");
+      res.redirect(
+        "https://perfect-profile-resume.netlify.app/predefined-templates"
+      );
     });
 
     // fail payment
@@ -225,53 +232,27 @@ async function run() {
     });
 
     /*********Customization Resume**********/
-    // // Save a customize-resume data in db
-    // app.post(`/customize-resume`, async (req, res) => {
-    //   const customizeResume = req.body;
-    //   const result = await resumeCollection.insertOne(customizeResume);
-    //   res.send(result);
-    // });
-
-    // // Get a single customize-resume data from db
-    // app.get("/customize-resume/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: new ObjectId(id) };
-    //   const result = await resumeCollection.findOne(query);
-    //   res.send(result);
-    // });
-
-    /*********Live URL Generate**********/
 
     const generateCustomUrl = () => {
       return Math.random().toString(36).substring(2, 15);
     };
 
-    // Middleware to simulate user authentication
-    app.use((req, res, next) => {
-      // Mock user object for demonstration purposes
-      req.user = { _id: "user-id-123" }; // Replace with actual user authentication logic
-      next();
-    });
-
-    // Endpoint to generate shareable resume link
+    // sava Customization Resume data in db
     app.post("/share-resume", async (req, res) => {
-      const userId = req.user._id; // User ID from the authenticated user
-      const userData = req.body; 
-      const customUrl = generateCustomUrl(); 
-      const resumeLink = `https://perfectprofile.com/resume/${customUrl}`;
+      // const userId = req.user._id; // User ID from the authenticated user
+      const userData = req.body;
+      const customUrl = generateCustomUrl();
+      const resumeLink = `http://localhost:5173/resume/${customUrl}`;
 
-      // Create a new resume document with both the resumeLink and userData
       const newResume = {
-        userId: userId, // Store the user ID
+        // userId: userId, // Store the user ID
         resumeLink: resumeLink,
-        userData: userData, 
+        userData: userData,
         createdAt: new Date(),
       };
 
       try {
-        // Insert the new resume document into the collection
         const result = await resumeCollection.insertOne(newResume);
-        // Respond with success and the shareable link
         const sendInfo = {
           templateID: result.insertedId,
           userData: userData,
@@ -289,28 +270,36 @@ async function run() {
       }
     });
 
+    // get a single customize resume data from  db
     app.get("/share-resume", async (req, res) => {
       const result = await resumeCollection.find().toArray();
       res.send(result);
     });
 
-    // Endpoint to view the resume via shareable link
-    app.get("/resume/:customUrl", async (req, res) => {
-      const { customUrl } = req.params;
+    /*********Live URL Generate**********/
 
+    // Middleware to simulate user authentication
+    app.use((req, res, next) => {
+      // Mock user object for demonstration purposes
+      req.user = { _id: "user-id-123" }; // Replace with actual user authentication logic
+      next();
+    });
+
+    // Get a single customize-resume data from db for View Resume via live URL
+    app.get("/resume/:link", async (req, res) => {
       try {
-        const resume = await resumeCollection.findOne({
-          resumeLink: `https://perfectprofile.com/resume/${customUrl}`,
+        const resumeLink = `http://localhost:5173/resume/${req.params.link}`;
+        const resumeData = await resumeCollection.findOne({
+          resumeLink: resumeLink,
         });
 
-        if (!resume) {
-          return res.status(404).send("Resume not found");
+        if (!resumeData) {
+          return res.status(404).json({ error: "Resume not found" });
         }
 
-        // Render the resume using the `resumeTemplate`
-        res.render("resumeTemplate", { resume });
+        res.status(200).json(resumeData);
       } catch (error) {
-        res.status(500).send("Server error");
+        res.status(500).json({ error: "Server Error" });
       }
     });
 
