@@ -23,8 +23,8 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());
 
-const uri = `mongodb://localhost:27017`;
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+// const uri = `mongodb://localhost:27017`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -77,7 +77,7 @@ async function run() {
         expiresIn: "1hr",
       });
       res
-        .cookie("access to the token", token, {
+        .cookie("Access to the token", token, {
           httpOnly: true,
           secure: false,
         })
