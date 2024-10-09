@@ -23,8 +23,8 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());
 
-const uri = `mongodb://localhost:27017`;
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+// const uri = `mongodb://localhost:27017`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -107,9 +107,23 @@ async function run() {
       res.send(result);
     });
     app.get(`/users`, async (req, res) => {
-      const cursor = usersCollection.find();
-      const result = await cursor.toArray();
-      res.send(result);
+      const page = parseInt(req.query.page) || 1; // Default to page 1
+      const limit = parseInt(req.query.limit) || 10; // Default to 10 users per page
+      const skip = (page - 1) * limit; // Calculate the skip value
+
+      const totalUsers = await usersCollection.countDocuments(); // Get the total number of users
+      const users = await usersCollection
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .toArray(); // Fetch users with pagination
+
+      res.json({
+        users,
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+      });
     });
 
     /*********Payment System**********/
