@@ -112,9 +112,25 @@ async function run() {
       res.send(result);
     });
     app.get(`/users`, async (req, res) => {
-      const cursor = usersCollection.find();
-      const result = await cursor.toArray();
-      res.send(result);
+      const page = parseInt(req.query.page) || 1; // Default to page 1
+      const limit = parseInt(req.query.limit) || 10; // Default to 10 users per page
+      const skip = (page - 1) * limit; // Calculate the skip value
+
+      const totalUsers = await usersCollection.countDocuments(); // Get the total number of users
+      const users = await usersCollection
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .toArray(); // Fetch users with pagination
+      const allUsers = await usersCollection.find().toArray();
+
+      res.json({
+        users,
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+        allUsers
+      });
     });
 
     /*********Payment System**********/
