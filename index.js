@@ -117,12 +117,14 @@ async function run() {
         .skip(skip)
         .limit(limit)
         .toArray(); // Fetch users with pagination
+      const allUsers = await usersCollection.find().toArray();
 
       res.json({
         users,
         currentPage: page,
         totalPages: Math.ceil(totalUsers / limit),
         totalUsers,
+        allUsers
       });
     });
 
