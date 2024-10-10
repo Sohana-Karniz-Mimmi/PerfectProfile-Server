@@ -111,26 +111,69 @@ async function run() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
-    app.get(`/users`, async (req, res) => {
-      const page = parseInt(req.query.page) || 1; // Default to page 1
-      const limit = parseInt(req.query.limit) || 10; // Default to 10 users per page
-      const skip = (page - 1) * limit; // Calculate the skip value
 
-      const totalUsers = await usersCollection.countDocuments(); // Get the total number of users
-      const users = await usersCollection
-        .find()
-        .skip(skip)
-        .limit(limit)
-        .toArray(); // Fetch users with pagination
-      const allUsers = await usersCollection.find().toArray();
+    // app.get(`/users`, async (req, res) => {
+    //   const page = parseInt(req.query.page) || 1; // Default to page 1
+    //   const limit = parseInt(req.query.limit) || 10; // Default to 10 users per page
+    //   const skip = (page - 1) * limit; // Calculate the skip value
 
-      res.json({
-        users,
-        currentPage: page,
-        totalPages: Math.ceil(totalUsers / limit),
-        totalUsers,
-        allUsers
-      });
+    //   const totalUsers = await usersCollection.countDocuments(); // Get the total number of users
+    //   const users = await usersCollection
+    //     .find()
+    //     .skip(skip)
+    //     .limit(limit)
+    //     .toArray(); // Fetch users with pagination
+    //   const allUsers = await usersCollection.find().toArray();
+
+    //   res.json({
+    //     users,
+    //     currentPage: page,
+    //     totalPages: Math.ceil(totalUsers / limit),
+    //     totalUsers,
+    //     allUsers
+    //   });
+    // });
+
+    // Get all users data from db for pagination
+
+    app.get("/users", async (req, res) => {
+      const size = parseInt(req.query.size);
+      const page = parseInt(req.query.page) - 1;
+      const filter = req.query.filter;
+      const search = req.query.search;
+      console.log(filter, search)
+      // console.log(size, page)
+
+      let query = {
+        name: { $regex: search, $options: "i" },
+      };
+      if (filter) query.productName = filter;
+      let options = {};
+      // const result = await usersCollection.find(query, options).toArray();
+      const result = await usersCollection
+        .find(query, options)
+        .skip(page * size)
+        .limit(size)
+        .toArray();
+      // const result = await usersCollection.find().toArray();
+
+      res.send(result);
+    });
+
+    // Get all users data count from db
+    app.get("/users-count", async (req, res) => {
+      const filter = req.query.filter;
+      const search = req.query.search;
+      let query = {
+        name: { $regex: search, $options: "i" },
+      };
+      if (filter) query.productName = filter;
+      console.log("Current Filter:", filter);
+      console.log("Current Search:", search);
+
+      const count = await usersCollection.countDocuments(query);
+
+      res.send({ count });
     });
 
     /*********Payment System**********/
@@ -254,7 +297,6 @@ async function run() {
 
     /*********Customization Resume**********/
 
-    
     const generateCustomUrl = () => {
       return Math.random().toString(36).substring(2, 15);
     };
