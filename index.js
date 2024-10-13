@@ -110,34 +110,27 @@ async function run() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
-    
-    // Get all users data from db for pagination
-    app.get("/users/admin", async (req, res) => {
-      const size = parseInt(req.query.size);
-      const page = parseInt(req.query.page) - 1;
-      const filter = req.query.filter;
-      const search = req.query.search;
-      console.log(filter, search);
-      // console.log(size, page)
 
-      let query = {
-        name: { $regex: search, $options: "i" },
-      };
-      if (filter) query.productName = filter;
-      let options = {};
-      // const result = await usersCollection.find(query, options).toArray();
-      const result = await usersCollection
-        .find(query, options)
-        .skip(page * size)
-        .limit(size)
-        .toArray();
+    // get a user info by email from db
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      try {
+        const user = await usersCollection.findOne({ email: email });
 
-      res.send(result);
+        if (user) {
+          res.status(200).json(user);
+        } else {
+          res.status(404).json({ message: "User not found" }); 
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ message: "Server error" });
+      }
     });
 
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
-      const size = parseInt(req.query.size) || 2;
+      const size = parseInt(req.query.size) || 10;
       const page = parseInt(req.query.page) - 1 || 0;
       const filter = req.query.filter;
       const search = req.query.search || "";
@@ -155,7 +148,7 @@ async function run() {
           .limit(size)
           .toArray();
 
-          const allUsers = await usersCollection.find().toArray();
+        const allUsers = await usersCollection.find().toArray();
         res.json({
           users,
           totalUsers,
@@ -319,13 +312,13 @@ async function run() {
 
     // sava Customization Resume data in db
     app.post("/share-resume", async (req, res) => {
-      // const userId = req.user._id; 
+      // const userId = req.user._id;
       const userData = req.body;
       const customUrl = generateCustomUrl();
       const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
 
       const newResume = {
-        // userId: userId, 
+        // userId: userId,
         resumeLink: resumeLink,
         userData: userData,
         createdAt: new Date(),
@@ -366,7 +359,7 @@ async function run() {
 
     // Middleware to simulate user authentication
     app.use((req, res, next) => {
-      req.user = { _id: "user-id-123" }; 
+      req.user = { _id: "user-id-123" };
       next();
     });
 
