@@ -117,19 +117,10 @@ async function run() {
       try {
         const user = await usersCollection.findOne({ email: email });
 
-<<<<<<< HEAD
-      res.json({
-        users,
-        currentPage: page,
-        totalPages: Math.ceil(totalUsers / limit),
-        totalUsers,
-        allUsers,
-      });
-=======
         if (user) {
           res.status(200).json(user);
         } else {
-          res.status(404).json({ message: "User not found" }); 
+          res.status(404).json({ message: "User not found" });
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -190,7 +181,6 @@ async function run() {
         console.error("Error fetching user count:", error);
         res.status(500).send({ error: "Internal server error" });
       }
->>>>>>> a3c1cb0f29fb7bbd0bc2617b7fd724a4a59e31e6
     });
 
     /*********Payment System**********/
