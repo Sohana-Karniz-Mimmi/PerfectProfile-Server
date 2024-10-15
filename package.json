@@ -18,6 +18,7 @@
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.9.0",
+    "puppeteer": "^23.5.1",
     "stripe": "^16.12.0"
   }
 }

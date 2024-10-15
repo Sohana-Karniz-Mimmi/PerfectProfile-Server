@@ -2,6 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const puppeteer = require('puppeteer');
 const axios = require("axios");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -23,8 +24,8 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());
 
-const uri = `mongodb://localhost:27017`;
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+// const uri = `mongodb://localhost:27017`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -111,6 +112,49 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+    // update user info
+    app.put(`/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
+      
+      const existingUser = await usersCollection.findOne(filter);
+      if (!existingUser) {
+        return res.status(404).send({ message: "User not found" });
+      }
+    
+      const currentDate = new Date();
+      const subscriptionDate = new Date(existingUser.createdAt); 
+      let productName = user.productName;
+    
+      // standard free after 1 month
+      if (existingUser.productName === 'standard') {
+        const oneMonthLater = new Date(subscriptionDate);
+        oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+        if (currentDate >= oneMonthLater) {
+          productName = 'free';
+        }
+      }
+    
+      // premium free after 1 year
+      if (existingUser.productName === 'premium') {
+        const oneYearLater = new Date(subscriptionDate);
+        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+        if (currentDate >= oneYearLater) {
+          productName = 'free';
+        }
+      }
+    
+      const updatedDoc = {
+        $set: {
+          productName: productName,
+          amount: user.amount, 
+        },
+      };
+    
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    
 
     /*********Payment System**********/
 
@@ -122,13 +166,13 @@ async function run() {
       const initialData = {
         store_id: "perfe66fa8d4bbb129",
         store_passwd: "perfe66fa8d4bbb129@ssl",
-        total_amount: paymentInfo.amount,
+        total_amount: paymentInfo.amount *100,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
         success_url:
-          "https://perfect-profile-server.vercel.app/success-payment",
-        fail_url: "https://perfect-profile-server.vercel.app/fail",
-        cancel_url: "https://perfect-profile-server.vercel.app/cancel",
+          "http://localhost:5000/success-payment",
+        fail_url: "http://localhost:5000/fail",
+        cancel_url: "http://localhost:5000/cancel",
         cus_name: paymentInfo.userName,
         cus_email: paymentInfo.email,
         cus_add1: "Dhaka",
@@ -208,14 +252,16 @@ async function run() {
 
     // fail payment
     app.post("/fail", async (req, res) => {
-      res.redirect("https://perfect-profile-resume.netlify.app/pricing");
+      res.redirect("http://localhost:5173/pricing");
       throw new error("Please try again");
     });
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("https://perfect-profile-resume.netlify.app");
+      res.redirect("http://localhost:5173");
     });
+
+  
 
     /*********Predefined Templates**********/
     app.get(`/predefined-templates`, async (req, res) => {
@@ -229,6 +275,21 @@ async function run() {
       const query = { templateItem: id };
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
+    });
+
+    // get all templates for pagination
+    app.get(`/templates`, async (req, res) => {
+      const size = parseInt(req.query.size)
+      const page = Math.max(0, parseInt(req.query.page) - 1); 
+       console.log(size,page)
+      const result = await predefinedTemplatesCollection.find().skip(size * page).limit(size).toArray();
+      res.send(result);
+    });
+
+    // get all the template count from db
+    app.get(`/templates-count`, async (req, res) => {
+      const count = await predefinedTemplatesCollection.countDocuments()
+      res.send({count});
     });
 
     /*********Customization Resume**********/
