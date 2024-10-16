@@ -397,7 +397,12 @@ async function run() {
       const result = await favoriteCollection.insertOne(templateData)
       res.send(result)
     })
-    
+    // get favorite templates from user
+    app.post('/my-favorites/:email',async(req,res) =>{
+      const query = {email : req.params.email}
+      const result = await favoriteCollection.find(query).toArray()
+      res.send(result)
+    })
 
     /*********Customization Resume**********/
 
