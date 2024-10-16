@@ -21,7 +21,7 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.urlencoded());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // const uri = `mongodb://localhost:27017`;
@@ -75,28 +75,32 @@ async function run() {
       const user = req.body;
       console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1hr",
+        expiresIn: "365d",
       });
       res
         .cookie("access to the token", token, {
           httpOnly: true,
-          secure: false,
+          // secure: false,
+          secure: process.env.NODE_ENV === "production" ? true : false,
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
 
     app.post("/logout", async (req, res) => {
       const user = req.body;
-      console.log("logging out", user);
+      // console.log("logging out", user);
       res
         .clearCookie("access to the token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production" ? true : false,
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
           maxAge: 0,
         })
         .send({ success: true });
     });
 
     // user related work
-
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -107,10 +111,77 @@ async function run() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
-    app.get(`/users`, async (req, res) => {
-      const cursor = usersCollection.find();
-      const result = await cursor.toArray();
-      res.send(result);
+
+    // get a user info by email from db
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      try {
+        const user = await usersCollection.findOne({ email: email });
+
+        if (user) {
+          res.status(200).json(user);
+        } else {
+          res.status(404).json({ message: "User not found" }); 
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ message: "Server error" });
+      }
+    });
+
+    // Get all users data from db for pagination, filtering and searching.
+    app.get("/users", async (req, res) => {
+      const size = parseInt(req.query.size) || 10;
+      const page = parseInt(req.query.page) - 1 || 0;
+      const filter = req.query.filter;
+      const search = req.query.search || "";
+
+      let query = {
+        name: { $regex: search, $options: "i" },
+      };
+      if (filter) query.productName = filter;
+
+      try {
+        const totalUsers = await usersCollection.countDocuments(query);
+        const users = await usersCollection
+          .find(query)
+          .skip(page * size)
+          .limit(size)
+          .toArray();
+
+        const allUsers = await usersCollection.find().toArray();
+        res.json({
+          users,
+          totalUsers,
+          allUsers,
+          totalPages: Math.ceil(totalUsers / size),
+          currentPage: page + 1,
+        });
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).send({ error: "Internal server error" });
+      }
+    });
+
+    // Get all users data count page from db
+    app.get("/users-count", async (req, res) => {
+      const filter = req.query.filter;
+      const search = req.query.search || "";
+      let query = {
+        name: { $regex: search, $options: "i" },
+      };
+      if (filter) query.productName = filter;
+
+      // console.log("Current Filter:", filter);
+      // console.log("Current Search:", search);
+
+      try {
+        const count = await usersCollection.countDocuments(query);
+        res.send({ count });
+      } catch (error) {
+        console.error("Error fetching user count:", error);
+        res.status(500).send({ error: "Internal server error" });
+      }
     });
     // update user info
     app.put(`/user/:email`, async (req, res) => {
@@ -260,12 +331,14 @@ async function run() {
     });
 
     /*********Predefined Templates**********/
+    //Get all Predefined Templates Data from DB
     app.get(`/predefined-templates`, async (req, res) => {
       const cursor = predefinedTemplatesCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
 
+    //Get a single Predefined Template Data from DB
     app.get(`/predefined-templates/:id`, async (req, res) => {
       const id = req.params.id;
       const query = { templateItem: id };
@@ -321,13 +394,13 @@ async function run() {
 
     // sava Customization Resume data in db
     app.post("/share-resume", async (req, res) => {
-      // const userId = req.user._id; // User ID from the authenticated user
+      // const userId = req.user._id;
       const userData = req.body;
       const customUrl = generateCustomUrl();
-      const resumeLink = `http://localhost:5173/resume/${customUrl}`;
+      const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
 
       const newResume = {
-        // userId: userId, // Store the user ID
+        // userId: userId,
         resumeLink: resumeLink,
         userData: userData,
         createdAt: new Date(),
@@ -368,15 +441,14 @@ async function run() {
 
     // Middleware to simulate user authentication
     app.use((req, res, next) => {
-      // Mock user object for demonstration purposes
-      req.user = { _id: "user-id-123" }; // Replace with actual user authentication logic
+      req.user = { _id: "user-id-123" };
       next();
     });
 
-    // Get a single customize-resume data from db for View Resume via live URL
+    // Get a single resume data from db for View Resume via live URL
     app.get("/resume/:link", async (req, res) => {
       try {
-        const resumeLink = `http://localhost:5173/resume/${req.params.link}`;
+        const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${req.params.link}`;
         const resumeData = await resumeCollection.findOne({
           resumeLink: resumeLink,
         });
