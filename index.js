@@ -2,7 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const puppeteer = require('puppeteer');
+const puppeteer = require("puppeteer");
 const axios = require("axios");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -116,45 +116,44 @@ async function run() {
     app.put(`/user/:email`, async (req, res) => {
       const filter = { email: req.params.email };
       const user = req.body;
-      
+
       const existingUser = await usersCollection.findOne(filter);
       if (!existingUser) {
         return res.status(404).send({ message: "User not found" });
       }
-    
+
       const currentDate = new Date();
-      const subscriptionDate = new Date(existingUser.createdAt); 
+      const subscriptionDate = new Date(existingUser.createdAt);
       let productName = user.productName;
-    
+
       // standard free after 1 month
-      if (existingUser.productName === 'standard') {
+      if (existingUser.productName === "standard") {
         const oneMonthLater = new Date(subscriptionDate);
         oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
         if (currentDate >= oneMonthLater) {
-          productName = 'free';
+          productName = "free";
         }
       }
-    
+
       // premium free after 1 year
-      if (existingUser.productName === 'premium') {
+      if (existingUser.productName === "premium") {
         const oneYearLater = new Date(subscriptionDate);
         oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
         if (currentDate >= oneYearLater) {
-          productName = 'free';
+          productName = "free";
         }
       }
-    
+
       const updatedDoc = {
         $set: {
           productName: productName,
-          amount: user.amount, 
+          amount: user.amount,
         },
       };
-    
+
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
-    
 
     /*********Payment System**********/
 
@@ -166,11 +165,10 @@ async function run() {
       const initialData = {
         store_id: "perfe66fa8d4bbb129",
         store_passwd: "perfe66fa8d4bbb129@ssl",
-        total_amount: paymentInfo.amount *100,
+        total_amount: paymentInfo.amount * 100,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url:
-          "http://localhost:5000/success-payment",
+        success_url: "http://localhost:5000/success-payment",
         fail_url: "http://localhost:5000/fail",
         cancel_url: "http://localhost:5000/cancel",
         cus_name: paymentInfo.userName,
@@ -261,8 +259,6 @@ async function run() {
       res.redirect("http://localhost:5173");
     });
 
-  
-
     /*********Predefined Templates**********/
     app.get(`/predefined-templates`, async (req, res) => {
       const cursor = predefinedTemplatesCollection.find();
@@ -279,45 +275,46 @@ async function run() {
 
     // get all templates for pagination
     app.get(`/templates`, async (req, res) => {
-      const size = parseInt(req.query.size)
+      const size = parseInt(req.query.size);
       const page = Math.max(0, parseInt(req.query.page) - 1);
-      const filter = req.query.filter 
-       console.log(size,page)
-       let query = {}
-       // Apply filter logic
-  if (filter === 'free') {
-    query.package = 'free';
-  } else if (filter === 'premium') {
-    query.package = 'premium';
-  } else if (filter === 'all') {
-    query.package = { $in: ['free', 'premium'] }; // Count both free and premium
-  }
+      const filter = req.query.filter;
+      console.log(size, page);
+      let query = {};
 
-      const result = await predefinedTemplatesCollection.find(query).skip(size * page).limit(size).toArray();
+      if (filter === "free") {
+        query.package = "free";
+      } else if (filter === "premium") {
+        query.package = "premium";
+      } else if (filter === "all") {
+        query.package = { $in: ["free", "premium"] };
+      }
+
+      const result = await predefinedTemplatesCollection
+        .find(query)
+        .skip(size * page)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
 
     // get all the template count from db
     app.get(`/templates-count`, async (req, res) => {
-      const filter = req.query.filter 
-       console.log(filter)
-       let query = {}
-      // Apply filter logic
-  if (filter === 'free') {
-    query.package = 'free';
-  } else if (filter === 'premium') {
-    query.package = 'premium';
-  } else if (filter === 'all') {
-    query.package = { $in: ['free', 'premium'] }; // Count both free and premium
-  }
-
-      const count = await predefinedTemplatesCollection.countDocuments(query)
-      res.send({count});
+      const filter = req.query.filter;
+      console.log(filter);
+      let query = {};
+      if (filter === "free") {
+        query.package = "free";
+      } else if (filter === "premium") {
+        query.package = "premium";
+      } else if (filter === "all") {
+        query.package = { $in: ["free", "premium"] };
+      }
+      const count = await predefinedTemplatesCollection.countDocuments(query);
+      res.send({ count });
     });
 
     /*********Customization Resume**********/
 
-    
     const generateCustomUrl = () => {
       return Math.random().toString(36).substring(2, 15);
     };
