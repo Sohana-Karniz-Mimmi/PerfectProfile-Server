@@ -280,15 +280,38 @@ async function run() {
     // get all templates for pagination
     app.get(`/templates`, async (req, res) => {
       const size = parseInt(req.query.size)
-      const page = Math.max(0, parseInt(req.query.page) - 1); 
+      const page = Math.max(0, parseInt(req.query.page) - 1);
+      const filter = req.query.filter 
        console.log(size,page)
-      const result = await predefinedTemplatesCollection.find().skip(size * page).limit(size).toArray();
+       let query = {}
+       // Apply filter logic
+  if (filter === 'free') {
+    query.package = 'free';
+  } else if (filter === 'premium') {
+    query.package = 'premium';
+  } else if (filter === 'all') {
+    query.package = { $in: ['free', 'premium'] }; // Count both free and premium
+  }
+
+      const result = await predefinedTemplatesCollection.find(query).skip(size * page).limit(size).toArray();
       res.send(result);
     });
 
     // get all the template count from db
     app.get(`/templates-count`, async (req, res) => {
-      const count = await predefinedTemplatesCollection.countDocuments()
+      const filter = req.query.filter 
+       console.log(filter)
+       let query = {}
+      // Apply filter logic
+  if (filter === 'free') {
+    query.package = 'free';
+  } else if (filter === 'premium') {
+    query.package = 'premium';
+  } else if (filter === 'all') {
+    query.package = { $in: ['free', 'premium'] }; // Count both free and premium
+  }
+
+      const count = await predefinedTemplatesCollection.countDocuments(query)
       res.send({count});
     });
 
