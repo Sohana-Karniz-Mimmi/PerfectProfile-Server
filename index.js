@@ -68,6 +68,9 @@ async function run() {
     const resumeCollection = client
       .db("PerfectProfile")
       .collection("customizeResume");
+    const favoriteCollection = client
+      .db("PerfectProfile")
+      .collection("favorite");
 
     /*****************Start*********************************/
 
@@ -386,6 +389,15 @@ async function run() {
       const count = await predefinedTemplatesCollection.countDocuments(query);
       res.send({ count });
     });
+
+
+    // post add to favorite from user
+    app.post('/my-favorites',async(req,res) =>{
+      const templateData = req.body
+      const result = await favoriteCollection.insertOne(templateData)
+      res.send(result)
+    })
+    
 
     /*********Customization Resume**********/
 
