@@ -39,21 +39,37 @@ const client = new MongoClient(uri, {
 //   console.log("called:", req.host, req.originalUrl);
 //   next();
 // };
+// const verifyToken = async (req, res, next) => {
+//   const token = req?.cookie?.token;
+//   console.log("value of token in middleware", token);
+//   if (!token) {
+//     return res.status(401).send({ message: "unAuthorized access" });
+//   }
+//   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+//     if (err) {
+//       return res.status(401).send({ message: "unAuthorized access" });
+//     }
+//     console.log("value in the token", decoded);
+//     req.user = decoded;
+//     next();
+//   });
+// };
 const verifyToken = async (req, res, next) => {
-  const token = req.cookie?.token;
+  const token = req.cookies.access_token; // কুকি থেকে টোকেন পড়ুন
   console.log("value of token in middleware", token);
   if (!token) {
-    return res.status(401).send({ message: "unAuthorized access" });
+    return res.status(401).send({ message: "Unauthorized access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(401).send({ message: "unAuthorized access" });
+      return res.status(401).send({ message: "Unauthorized access" });
     }
     console.log("value in the token", decoded);
-    req.user = decoded;
+    req.user = decoded; // টোকেনের তথ্য req.user-এ সঞ্চয় করুন
     next();
   });
 };
+
 async function run() {
   try {
     // await client.connect();
@@ -70,34 +86,78 @@ async function run() {
     /*****************Start*********************************/
 
     /*********auth related system**********/
-    app.post("/jwt", async (req, res) => {
-      const user = req.body;
-      console.log(user);
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "365d",
-      });
-      res
-        .cookie("access to the token", token, {
-          httpOnly: true,
-          // secure: false,
-          secure: process.env.NODE_ENV === "production" ? true : false,
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        })
-        .send({ success: true });
+    // app.post("/jwt", async (req, res) => {
+    //   const user = req.body;
+    //   console.log(user);
+    //   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+    //     expiresIn: "365d",
+    //   });
+    //   res
+    //     .cookie("accessToTheToken", token, {
+    //       httpOnly: true,
+    //       // secure: false,
+    //       secure: process.env.NODE_ENV === "production" ? true : false,
+    //       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //     })
+    //     .send({ success: true });
+    // });
+
+    app.post("/login", (req, res) => {
+      const userId = req.body.userId;
+      const token = jwt.sign(
+        { id: userId, role: "user" },
+        process.env.ACCESS_TOKEN_SECRET
+      );
+      return res
+        .header("Authorization", `Bearer ${token}`) // টোকেনকে হেডারে যোগ করুন
+        .status(200)
+        .json({ message: "Logged in successfully" });
     });
 
-    app.post("/logout", async (req, res) => {
-      const user = req.body;
-      // console.log("logging out", user);
-      res
-        .clearCookie("access to the token", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production" ? true : false,
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-          maxAge: 0,
-        })
-        .send({ success: true });
+    const authorization = (req, res, next) => {
+      const token = req.cookies.access_token;
+      if (!token) {
+        return res
+          .status(403)
+          .json({ message: "No token provided, access denied." });
+      }
+      try {
+        const data = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        req.userId = data.id;
+        req.userRole = data.role;
+        next(); // Call the next middleware
+      } catch (error) {
+        console.error("Token verification failed:", error);
+        return res
+          .status(403)
+          .json({ message: "Invalid token, access denied." });
+      }
+    };
+
+    app.post("/logout", authorization, (req, res) => {
+      res.clearCookie("access_token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      });
+      return res.status(200).json({ message: "Successfully logged out." });
     });
+
+    app.post("/protected", authorization, (req, res) => {
+      return res.json({ user: { id: req.userId, role: req.userRole } });
+    });
+
+    // app.post("/logout", async (req, res) => {
+    //   const user = req.body;
+    //   // console.log("logging out", user);
+    //   res
+    //     .clearCookie("access_token", {
+    //       httpOnly: true,
+    //       secure: process.env.NODE_ENV === "production" ? true : false,
+    //       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //       maxAge: 0,
+    //     })
+    //     .send({ success: true });
+    // });
 
     // user related work
     app.post("/users", async (req, res) => {
@@ -109,6 +169,36 @@ async function run() {
       }
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.patch("/updateProfile/:email", async (req, res) => {
+      const { email } = req.params;
+      const updatedProfile = req.body;
+
+      const filter = { email: email };
+
+      const updatedDoc = {
+        $set: {
+          name: updatedProfile.name,
+          email: updatedProfile.email,
+          photoURL: updatedProfile.photoURL,
+        },
+      };
+
+      try {
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+
+        // check if the update was successful
+        if (result.modifiedCount > 0) {
+          res
+            .status(200)
+            .send({ message: "Profile updated successfully", result });
+        } else {
+          res.status(404).send({ message: "User not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update profile", error });
+      }
     });
 
     // get a user info by email from db
