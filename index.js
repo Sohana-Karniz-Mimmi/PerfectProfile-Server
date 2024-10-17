@@ -9,7 +9,6 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 
-
 // Middleware
 app.use(
   cors({
@@ -125,7 +124,7 @@ async function run() {
         if (user) {
           res.status(200).json(user);
         } else {
-          res.status(404).json({ message: "User not found" }); 
+          res.status(404).json({ message: "User not found" });
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -407,7 +406,6 @@ async function run() {
       res.send({ count });
     });
 
-
     // post add to favorite from user
     app.post('/my-favorites', async (req, res) => {
       const { email, templateId, image, templatePackage } = req.body; // Add user email, image, and other necessary fields
@@ -446,7 +444,7 @@ async function run() {
       const newResume = {
         // userId: userId,
         resumeLink: resumeLink,
-        userData: userData,
+        ...userData,
         createdAt: new Date(),
       };
 
@@ -454,7 +452,7 @@ async function run() {
         const result = await resumeCollection.insertOne(newResume);
         const sendInfo = {
           templateID: result.insertedId,
-          userData: userData,
+          userData,
         };
         res.send({
           success: true,
@@ -505,6 +503,65 @@ async function run() {
       } catch (error) {
         res.status(500).json({ error: "Server Error" });
       }
+    });
+
+    /*********Version Contorting**********/
+    // delete a resume data
+    app.delete(`/my-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await resumeCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Get resume by user email
+    app.get("/my-resume/:email", async (req, res) => {
+      const email = req.params.email;
+      // console.log(email);
+
+      const query = { user_email: email };
+      try {
+        const result = await resumeCollection.find(query).toArray();
+        // console.log(result);
+        if (result.length === 0) {
+          return res
+            .status(404)
+            .send({ message: "No resume found for this email" });
+        }
+        res.send(result);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Error retrieving resume", error: err });
+      }
+    });
+
+    // Get a single resume data from db using user id
+    app.get("/my-resume/edit/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await resumeCollection.findOne(query);
+      res.send(result);
+    });
+
+    // Update a Resume Data in db
+    app.put(`/my-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      const resume = req.body;
+      const query = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateResume = {
+        $set: {
+          ...resume,
+        },
+      };
+      const result = await resumeCollection.updateOne(
+        query,
+        updateResume,
+        options
+      );
+      res.send(result);
     });
 
     /*******************End************************** */
