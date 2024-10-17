@@ -352,7 +352,7 @@ async function run() {
     //update a img of Template in DB
     app.patch(`/predefined-templates/:id`, async (req, res) => {
       const id = req.params.id;
-      // const query = { templateItem: id };
+      const query = { templateItem: id };
       const filter = {_id : new ObjectId(id)}
       const profile = req.body
      
@@ -373,17 +373,22 @@ async function run() {
       const filter = req.query.filter;
       console.log(size, page);
       let query = {};
+      if (filter) query.package = filter
 
-      if (filter === "free") {
-        query.package = "free";
-      } else if (filter === "premium") {
-        query.package = "premium";
-      } else if (filter === "all") {
-        query.package = { $in: ["free", "premium"] };
-      }
+
+      // if (filter === "free") {
+      //   query.package = "free";
+      // } else if (filter === "premium") {
+      //   query.package = "premium";
+      // } else 
+      // if (filter === "all") {
+      //   query.package = { $in: ["free", "premium"] };
+      // }
+      // console.log(query)
 
       const result = await predefinedTemplatesCollection
         .find(query)
+        // .find()
         .skip(size * page)
         .limit(size)
         .toArray();
@@ -395,13 +400,16 @@ async function run() {
       const filter = req.query.filter;
       console.log(filter);
       let query = {};
-      if (filter === "free") {
-        query.package = "free";
-      } else if (filter === "premium") {
-        query.package = "premium";
-      } else if (filter === "all") {
-        query.package = { $in: ["free", "premium"] };
-      }
+      if (filter) query.package = filter
+
+      // if (filter === "free") {
+      //   query.package = "free";
+      // } else if (filter === "premium") {
+      //   query.package = "premium";
+      // } else
+      //  if (filter === "all") {
+      //   query.package = { $in: ["free", "premium"] };
+      // }
       const count = await predefinedTemplatesCollection.countDocuments(query);
       res.send({ count });
     });
