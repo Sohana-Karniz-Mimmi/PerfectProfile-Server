@@ -2,11 +2,13 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const puppeteer = require("puppeteer");
 const axios = require("axios");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
+
 
 // Middleware
 app.use(
@@ -66,6 +68,9 @@ async function run() {
     const resumeCollection = client
       .db("PerfectProfile")
       .collection("customizeResume");
+    const favoriteCollection = client
+      .db("PerfectProfile")
+      .collection("favorite");
 
     /*****************Start*********************************/
 
@@ -182,6 +187,48 @@ async function run() {
         res.status(500).send({ error: "Internal server error" });
       }
     });
+    // update user info
+    app.put(`/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
+
+      const existingUser = await usersCollection.findOne(filter);
+      if (!existingUser) {
+        return res.status(404).send({ message: "User not found" });
+      }
+
+      const currentDate = new Date();
+      const subscriptionDate = new Date(existingUser.createdAt);
+      let productName = user.productName;
+
+      // standard free after 1 month
+      if (existingUser.productName === "standard") {
+        const oneMonthLater = new Date(subscriptionDate);
+        oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+        if (currentDate >= oneMonthLater) {
+          productName = "free";
+        }
+      }
+
+      // premium free after 1 year
+      if (existingUser.productName === "premium") {
+        const oneYearLater = new Date(subscriptionDate);
+        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+        if (currentDate >= oneYearLater) {
+          productName = "free";
+        }
+      }
+
+      const updatedDoc = {
+        $set: {
+          productName: productName,
+          amount: user.amount,
+        },
+      };
+
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     /*********Payment System**********/
 
@@ -193,13 +240,12 @@ async function run() {
       const initialData = {
         store_id: "perfe66fa8d4bbb129",
         store_passwd: "perfe66fa8d4bbb129@ssl",
-        total_amount: paymentInfo.amount,
+        total_amount: paymentInfo.amount * 100,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url:
-          "https://perfect-profile-server.vercel.app/success-payment",
-        fail_url: "https://perfect-profile-server.vercel.app/fail",
-        cancel_url: "https://perfect-profile-server.vercel.app/cancel",
+        success_url: "http://localhost:5000/success-payment",
+        fail_url: "http://localhost:5000/fail",
+        cancel_url: "http://localhost:5000/cancel",
         cus_name: paymentInfo.userName,
         cus_email: paymentInfo.email,
         cus_add1: "Dhaka",
@@ -279,13 +325,13 @@ async function run() {
 
     // fail payment
     app.post("/fail", async (req, res) => {
-      res.redirect("https://perfect-profile-resume.netlify.app/pricing");
+      res.redirect("http://localhost:5173/pricing");
       throw new error("Please try again");
     });
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("https://perfect-profile-resume.netlify.app");
+      res.redirect("http://localhost:5173");
     });
 
     /*********Predefined Templates**********/
@@ -303,6 +349,60 @@ async function run() {
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
     });
+
+    // get all templates for pagination
+    app.get(`/templates`, async (req, res) => {
+      const size = parseInt(req.query.size);
+      const page = Math.max(0, parseInt(req.query.page) - 1);
+      const filter = req.query.filter;
+      console.log(size, page);
+      let query = {};
+
+      if (filter === "free") {
+        query.package = "free";
+      } else if (filter === "premium") {
+        query.package = "premium";
+      } else if (filter === "all") {
+        query.package = { $in: ["free", "premium"] };
+      }
+
+      const result = await predefinedTemplatesCollection
+        .find(query)
+        .skip(size * page)
+        .limit(size)
+        .toArray();
+      res.send(result);
+    });
+
+    // get all the template count from db
+    app.get(`/templates-count`, async (req, res) => {
+      const filter = req.query.filter;
+      console.log(filter);
+      let query = {};
+      if (filter === "free") {
+        query.package = "free";
+      } else if (filter === "premium") {
+        query.package = "premium";
+      } else if (filter === "all") {
+        query.package = { $in: ["free", "premium"] };
+      }
+      const count = await predefinedTemplatesCollection.countDocuments(query);
+      res.send({ count });
+    });
+
+
+    // post add to favorite from user
+    app.post('/my-favorites',async(req,res) =>{
+      const templateData = req.body
+      const result = await favoriteCollection.insertOne(templateData)
+      res.send(result)
+    })
+    // get favorite templates from user
+    app.post('/my-favorites/:email',async(req,res) =>{
+      const query = {email : req.params.email}
+      const result = await favoriteCollection.find(query).toArray()
+      res.send(result)
+    })
 
     /*********Customization Resume**********/
 
