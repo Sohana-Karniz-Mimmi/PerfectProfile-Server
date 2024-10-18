@@ -317,9 +317,7 @@ async function run() {
       console.log("update data", updateData);
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect(
-        "http://localhost:5173/predefined-templates"
-      );
+      res.redirect("http://localhost:5173/predefined-templates");
     });
 
     // fail payment
@@ -348,22 +346,25 @@ async function run() {
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
     });
-    
+
     //update a img of Template in DB
     app.patch(`/predefined-templates/:id`, async (req, res) => {
       const id = req.params.id;
       const query = { templateItem: id };
-      const filter = {_id : new ObjectId(id)}
-      const profile = req.body
-     
-      const updatedDoc = {
-        $set : {
-          image : profile?.image
-        }
-      }
+      const filter = { _id: new ObjectId(id) };
+      const profile = req.body;
 
-      const result = await predefinedTemplatesCollection.updateOne(filter, updatedDoc)
-     res.send(result)
+      const updatedDoc = {
+        $set: {
+          image: profile?.image,
+        },
+      };
+
+      const result = await predefinedTemplatesCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      res.send(result);
     });
 
     // get all templates for pagination
@@ -373,14 +374,13 @@ async function run() {
       const filter = req.query.filter;
       console.log(size, page);
       let query = {};
-      if (filter) query.package = filter
-
+      if (filter) query.package = filter;
 
       // if (filter === "free") {
       //   query.package = "free";
       // } else if (filter === "premium") {
       //   query.package = "premium";
-      // } else 
+      // } else
       // if (filter === "all") {
       //   query.package = { $in: ["free", "premium"] };
       // }
@@ -400,7 +400,7 @@ async function run() {
       const filter = req.query.filter;
       console.log(filter);
       let query = {};
-      if (filter) query.package = filter
+      if (filter) query.package = filter;
 
       // if (filter === "free") {
       //   query.package = "free";
@@ -415,26 +415,34 @@ async function run() {
     });
 
     // post add to favorite from user
-    app.post('/my-favorites', async (req, res) => {
+    app.post("/my-favorites", async (req, res) => {
       const { email, templateId, image, templatePackage } = req.body; // Add user email, image, and other necessary fields
-      
+
       // Check if the template is already in favorites
-      const existingFavorite = await favoriteCollection.findOne({ email, templateId });
-      
+      const existingFavorite = await favoriteCollection.findOne({
+        email,
+        templateId,
+      });
+
       if (!existingFavorite) {
-        const favoriteData = { email, templateId, image, package: templatePackage }; // Store user email and template info
+        const favoriteData = {
+          email,
+          templateId,
+          image,
+          package: templatePackage,
+        }; // Store user email and template info
         const result = await favoriteCollection.insertOne(favoriteData); // Insert into DB
         res.send(result);
       } else {
-        res.status(400).send({ message: 'Template already in favorites' });
+        res.status(400).send({ message: "Template already in favorites" });
       }
     });
     // get favorite templates from user
-    app.get('/my-favorites/:email',async(req,res) =>{
-      const query = {email : req.params.email}
-      const result = await favoriteCollection.find(query).toArray()
-      res.send(result)
-    })
+    app.get("/my-favorites/:email", async (req, res) => {
+      const query = { email: req.params.email };
+      const result = await favoriteCollection.find(query).toArray();
+      res.send(result);
+    });
 
     /*********Customization Resume**********/
 
@@ -473,6 +481,22 @@ async function run() {
           .status(500)
           .send({ success: false, message: "Failed to generate share link" });
       }
+    });
+
+    //update a img of Template in DB
+    app.put(`/share-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { templateItem: id };
+      // const filter = {}
+      const profile = req.body;
+      const updatedDoc = {
+        $set: {
+          image: profile?.image,
+        },
+      };
+
+      const result = await resumeCollection.updateOne(query, updatedDoc);
+      res.send(result);
     });
 
     // get a single customize resume data from  db
