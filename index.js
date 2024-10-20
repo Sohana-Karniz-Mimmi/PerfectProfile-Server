@@ -349,23 +349,7 @@ async function run() {
       res.send(result);
     });
     
-    //update a img of Template in DB
-    app.patch(`/predefined-templates/:id`, async (req, res) => {
-      const id = req.params.id;
-      // const query = { templateItem: id };
-      const filter = {_id : new ObjectId(id)}
-      const profile = req.body
-     
-      const updatedDoc = {
-        $set : {
-          image : profile?.image
-        }
-      }
-
-      const result = await predefinedTemplatesCollection.updateOne(filter, updatedDoc)
-     res.send(result)
-    });
-
+    
     // get all templates for pagination
     app.get(`/templates`, async (req, res) => {
       const size = parseInt(req.query.size);
@@ -373,17 +357,10 @@ async function run() {
       const filter = req.query.filter;
       console.log(size, page);
       let query = {};
-
-      if (filter === "free") {
-        query.package = "free";
-      } else if (filter === "premium") {
-        query.package = "premium";
-      } else if (filter === "all") {
-        query.package = { $in: ["free", "premium"] };
-      }
-
+      if (filter) query.package = filter
       const result = await predefinedTemplatesCollection
         .find(query)
+        // .find()
         .skip(size * page)
         .limit(size)
         .toArray();
@@ -395,13 +372,7 @@ async function run() {
       const filter = req.query.filter;
       console.log(filter);
       let query = {};
-      if (filter === "free") {
-        query.package = "free";
-      } else if (filter === "premium") {
-        query.package = "premium";
-      } else if (filter === "all") {
-        query.package = { $in: ["free", "premium"] };
-      }
+      if (filter) query.package = filter     
       const count = await predefinedTemplatesCollection.countDocuments(query);
       res.send({ count });
     });
@@ -427,6 +398,14 @@ async function run() {
       const result = await favoriteCollection.find(query).toArray()
       res.send(result)
     })
+
+    // delete favorite templates
+    app.delete("/my-favorites/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await favoriteCollection.deleteOne(query);
+      res.send(result);
+    });
 
     /*********Customization Resume**********/
 
@@ -478,6 +457,24 @@ async function run() {
       const result = await resumeCollection.findOne(query);
       res.send(result);
     });
+
+    //update a img of Template in DB
+    app.put(`/share-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { templateItem: id };
+      // const filter = {}
+      const profile = req.body
+     
+      const updatedDoc = {
+        $set : {
+          image : profile?.image
+        }
+      }
+
+      const result = await resumeCollection.updateOne(query, updatedDoc)
+     res.send(result)
+    });
+
 
     /*********Live URL Generate**********/
 
