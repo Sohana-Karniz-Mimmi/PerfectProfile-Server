@@ -256,9 +256,9 @@ async function run() {
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
         success_url:
-          "https://perfect-profile-server.vercel.app/success-payment",
-        fail_url: "https://perfect-profile-server.vercel.app/fail",
-        cancel_url: "https://perfect-profile-server.vercel.app/cancel",
+          `${process.env.VITE_BACKEND_API_URL}/success-payment`,
+        fail_url: `${process.env.VITE_BACKEND_API_URL}/fail`,
+        cancel_url: `${process.env.VITE_BACKEND_API_URL}/cancel`,
         cus_name: paymentInfo.userName,
         cus_email: paymentInfo.email,
         cus_add1: "Dhaka",
@@ -332,19 +332,19 @@ async function run() {
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
       res.redirect(
-        "https://perfect-profile-resume.netlify.app/predefined-templates"
+        `${process.env.VITE_FRONTEND_API_URL}/predefined-templates`
       );
     });
 
     // fail payment
     app.post("/fail", async (req, res) => {
-      res.redirect("https://perfect-profile-resume.netlify.app/pricing");
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}/pricing`);
       throw new error("Please try again");
     });
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("https://perfect-profile-resume.netlify.app");
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}`);
     });
 
     /*********Predefined Templates**********/
@@ -442,7 +442,7 @@ async function run() {
       // console.log("Resume ID:", id);
 
       const customUrl = generateCustomUrl();
-      const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
+      const resumeLink = `${process.env.VITE_FRONTEND_API_URL}/resume/${customUrl}`;
       const query = { _id: new ObjectId(id) };
 
       try {
@@ -539,6 +539,7 @@ async function run() {
     // });
 
     //update a img of Template in DB
+    
     app.put(`/share-resume/:id`, async (req, res) => {
       const id = req.params.id;
       const query = { templateItem: id };
@@ -594,7 +595,7 @@ async function run() {
     // Get a single resume data from db for View Resume via live URL
     app.get("/resume/:link", async (req, res) => {
       try {
-        const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${req.params.link}`;
+        const resumeLink = `${process.env.VITE_FRONTEND_API_URL}/resume/${req.params.link}`;
         const resumeData = await resumeCollection.findOne({
           resumeLink: resumeLink,
         });
