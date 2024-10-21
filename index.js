@@ -36,13 +36,10 @@ const client = new MongoClient(uri, {
   },
 });
 
-// const logger = async (req, res, next) => {
-//   console.log("called:", req.host, req.originalUrl);
-//   next();
-// };
+// verify jwt middleware
 const verifyToken = async (req, res, next) => {
-  const token = req.cookie?.token;
-  console.log("value of token in middleware", token);
+  const token = req.cookies.token;
+  // console.log('token', token);
   if (!token) {
     return res.status(401).send({ message: "unAuthorized access" });
   }
@@ -71,30 +68,46 @@ async function run() {
       .db("PerfectProfile")
       .collection("favorite");
 
+    // verify admin middleware
+    const verifyAdmin = async (req, res, next) => {
+      // console.log("hello");
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await usersCollection.findOne(query);
+      // console.log("User Email", user);
+      // console.log("Admin Result Role", result);
+      if (!result || result?.role !== "admin")
+        return res.status(401).send({ message: "unauthorized access!!" });
+
+      next();
+    };
+
     /*****************Start*********************************/
 
     /*********auth related system**********/
+    // jwt token generate route
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log(user);
+      // console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "365d",
       });
       res
-        .cookie("access to the token", token, {
+        .cookie("token", token, {
           httpOnly: true,
           // secure: false,
           secure: process.env.NODE_ENV === "production" ? true : false,
           sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
+      // console.log("jwt token", token);
     });
 
     app.post("/logout", async (req, res) => {
       const user = req.body;
       // console.log("logging out", user);
       res
-        .clearCookie("access to the token", {
+        .clearCookie("token", {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production" ? true : false,
           sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
@@ -242,7 +255,8 @@ async function run() {
         total_amount: paymentInfo.amount * 100,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url: "https://perfect-profile-server.vercel.app/success-payment",
+        success_url:
+          "https://perfect-profile-server.vercel.app/success-payment",
         fail_url: "https://perfect-profile-server.vercel.app/fail",
         cancel_url: "https://perfect-profile-server.vercel.app/cancel",
         cus_name: paymentInfo.userName,
@@ -317,7 +331,9 @@ async function run() {
       console.log("update data", updateData);
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect("https://perfect-profile-resume.netlify.app/predefined-templates");
+      res.redirect(
+        "https://perfect-profile-resume.netlify.app/predefined-templates"
+      );
     });
 
     // fail payment
@@ -346,8 +362,7 @@ async function run() {
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
     });
-    
-    
+
     // get all templates for pagination
     app.get(`/templates`, async (req, res) => {
       const size = parseInt(req.query.size);
@@ -355,7 +370,7 @@ async function run() {
       const filter = req.query.filter;
       console.log(size, page);
       let query = {};
-      if (filter) query.package = filter
+      if (filter) query.package = filter;
       const result = await predefinedTemplatesCollection
         .find(query)
         // .find()
@@ -370,7 +385,7 @@ async function run() {
       const filter = req.query.filter;
       console.log(filter);
       let query = {};
-      if (filter) query.package = filter     
+      if (filter) query.package = filter;
       const count = await predefinedTemplatesCollection.countDocuments(query);
       res.send({ count });
     });
@@ -419,38 +434,109 @@ async function run() {
       return Math.random().toString(36).substring(2, 15);
     };
 
-    // sava Customization Resume data in db
-    app.post("/share-resume", async (req, res) => {
-      // const userId = req.user._id;
-      const userData = req.body;
+    // Save and Update Customization Resume data in db
+    app.put("/customize-resume", async (req, res) => {
+      const resume = req.body;
+      const id = resume?.resumeId;
+
+      // console.log("Resume ID:", id);
+
       const customUrl = generateCustomUrl();
       const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
-
-      const newResume = {
-        // userId: userId,
-        resumeLink: resumeLink,
-        ...userData,
-        createdAt: new Date(),
-      };
+      const query = { _id: new ObjectId(id) };
 
       try {
-        const result = await resumeCollection.insertOne(newResume);
-        const sendInfo = {
-          templateID: result.insertedId,
-          userData,
-        };
-        res.send({
-          success: true,
-          shareLink: resumeLink,
-          sendInfo,
-        });
+        const isExist = await resumeCollection.findOne(query);
+
+        if (isExist) {
+          const { _id, resumeLink, ...resumeUpdate } = resume; 
+
+          const result = await resumeCollection.updateOne(query, {
+            $set: {
+              ...resumeUpdate,
+            },
+          });
+
+          if (result.modifiedCount > 0) {
+            const sendInfo = {
+              templateID: id,
+              userData: resume,
+            };
+            return res.send({
+              success: true,
+              message: "Resume updated successfully",
+              shareLink: resumeLink,
+              sendInfo,
+            });
+          } else {
+            return res
+              .status(400)
+              .send({ success: false, message: "Failed to update resume" });
+          }
+        } else {
+          const newResume = {
+            resumeLink: resumeLink,
+            ...resume,
+            timestamp: Date.now(),
+          };
+
+          const insertResult = await resumeCollection.insertOne(newResume);
+          if (insertResult.insertedId) {
+            const sendInfo = {
+              templateID: insertResult.insertedId,
+              userData: resume,
+            };
+            return res.send({
+              success: true,
+              shareLink: resumeLink,
+              sendInfo,
+            });
+          } else {
+            return res
+              .status(500)
+              .send({ success: false, message: "Failed to insert new resume" });
+          }
+        }
       } catch (error) {
-        console.error("Error inserting resume link:", error);
-        res
+        console.error("Error handling resume data:", error);
+        return res
           .status(500)
-          .send({ success: false, message: "Failed to generate share link" });
+          .send({ success: false, message: "Internal server error" });
       }
     });
+
+    // sava Customization Resume data in db
+    // app.post("/share-resume", async (req, res) => {
+    //   // const userId = req.user._id;
+    //   const userData = req.body;
+    //   const customUrl = generateCustomUrl();
+    //   const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
+
+    //   const newResume = {
+    //     // userId: userId,
+    //     resumeLink: resumeLink,
+    //     ...userData,
+    //     createdAt: new Date(),
+    //   };
+
+    //   try {
+    //     const result = await resumeCollection.insertOne(newResume);
+    //     const sendInfo = {
+    //       templateID: result.insertedId,
+    //       userData,
+    //     };
+    //     res.send({
+    //       success: true,
+    //       shareLink: resumeLink,
+    //       sendInfo,
+    //     });
+    //   } catch (error) {
+    //     console.error("Error inserting resume link:", error);
+    //     res
+    //       .status(500)
+    //       .send({ success: false, message: "Failed to generate share link" });
+    //   }
+    // });
 
     //update a img of Template in DB
     app.put(`/share-resume/:id`, async (req, res) => {
@@ -485,18 +571,17 @@ async function run() {
       const id = req.params.id;
       const query = { templateItem: id };
       // const filter = {}
-      const profile = req.body
-     
+      const profile = req.body;
+
       const updatedDoc = {
-        $set : {
-          image : profile?.image
-        }
-      }
+        $set: {
+          image: profile?.image,
+        },
+      };
 
-      const result = await resumeCollection.updateOne(query, updatedDoc)
-     res.send(result)
+      const result = await resumeCollection.updateOne(query, updatedDoc);
+      res.send(result);
     });
-
 
     /*********Live URL Generate**********/
 
@@ -538,7 +623,6 @@ async function run() {
     app.get("/my-resume/:email", async (req, res) => {
       const email = req.params.email;
       // console.log(email);
-
       const query = { user_email: email };
       try {
         const result = await resumeCollection.find(query).toArray();
@@ -561,25 +645,6 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await resumeCollection.findOne(query);
-      res.send(result);
-    });
-
-    // Update a Resume Data in db
-    app.put(`/my-resume/:id`, async (req, res) => {
-      const id = req.params.id;
-      const resume = req.body;
-      const query = { _id: new ObjectId(id) };
-      const options = { upsert: true };
-      const updateResume = {
-        $set: {
-          ...resume,
-        },
-      };
-      const result = await resumeCollection.updateOne(
-        query,
-        updateResume,
-        options
-      );
       res.send(result);
     });
 
