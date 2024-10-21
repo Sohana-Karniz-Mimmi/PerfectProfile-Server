@@ -70,6 +70,9 @@ async function run() {
     const favoriteCollection = client
       .db("PerfectProfile")
       .collection("favorite");
+    const feedbackCollection = client
+      .db("PerfectProfile")
+      .collection("feedback");
 
     /*****************Start*********************************/
 
@@ -317,9 +320,7 @@ async function run() {
       console.log("update data", updateData);
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect(
-        "http://localhost:5173/predefined-templates"
-      );
+      res.redirect("http://localhost:5173/predefined-templates");
     });
 
     // fail payment
@@ -348,8 +349,7 @@ async function run() {
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
     });
-    
-    
+
     // get all templates for pagination
     app.get(`/templates`, async (req, res) => {
       const size = parseInt(req.query.size);
@@ -357,7 +357,7 @@ async function run() {
       const filter = req.query.filter;
       console.log(size, page);
       let query = {};
-      if (filter) query.package = filter
+      if (filter) query.package = filter;
       const result = await predefinedTemplatesCollection
         .find(query)
         // .find()
@@ -372,32 +372,40 @@ async function run() {
       const filter = req.query.filter;
       console.log(filter);
       let query = {};
-      if (filter) query.package = filter     
+      if (filter) query.package = filter;
       const count = await predefinedTemplatesCollection.countDocuments(query);
       res.send({ count });
     });
 
     // post add to favorite from user
-    app.post('/my-favorites', async (req, res) => {
+    app.post("/my-favorites", async (req, res) => {
       const { email, templateId, image, templatePackage } = req.body; // Add user email, image, and other necessary fields
-      
+
       // Check if the template is already in favorites
-      const existingFavorite = await favoriteCollection.findOne({ email, templateId });
-      
+      const existingFavorite = await favoriteCollection.findOne({
+        email,
+        templateId,
+      });
+
       if (!existingFavorite) {
-        const favoriteData = { email, templateId, image, package: templatePackage }; // Store user email and template info
+        const favoriteData = {
+          email,
+          templateId,
+          image,
+          package: templatePackage,
+        }; // Store user email and template info
         const result = await favoriteCollection.insertOne(favoriteData); // Insert into DB
         res.send(result);
       } else {
-        res.status(400).send({ message: 'Template already in favorites' });
+        res.status(400).send({ message: "Template already in favorites" });
       }
     });
     // get favorite templates from user
-    app.get('/my-favorites/:email',async(req,res) =>{
-      const query = {email : req.params.email}
-      const result = await favoriteCollection.find(query).toArray()
-      res.send(result)
-    })
+    app.get("/my-favorites/:email", async (req, res) => {
+      const query = { email: req.params.email };
+      const result = await favoriteCollection.find(query).toArray();
+      res.send(result);
+    });
 
     // delete favorite templates
     app.delete("/my-favorites/:id", async (req, res) => {
@@ -463,18 +471,17 @@ async function run() {
       const id = req.params.id;
       const query = { templateItem: id };
       // const filter = {}
-      const profile = req.body
-     
+      const profile = req.body;
+
       const updatedDoc = {
-        $set : {
-          image : profile?.image
-        }
-      }
+        $set: {
+          image: profile?.image,
+        },
+      };
 
-      const result = await resumeCollection.updateOne(query, updatedDoc)
-     res.send(result)
+      const result = await resumeCollection.updateOne(query, updatedDoc);
+      res.send(result);
     });
-
 
     /*********Live URL Generate**********/
 
@@ -560,6 +567,77 @@ async function run() {
       );
       res.send(result);
     });
+
+    // Customer Feedback related APIs Start
+
+    // Feedback API route
+    // app.post("/feedback", async (req, res) => {
+    //   try {
+    //     const { feedback, rating } = req.body;
+
+    //     // Validate feedback
+    //     if (!feedback) {
+    //       return res.status(400).json({ error: "Feedback is required" });
+    //     }
+
+    //     // Insert feedback into the collection
+    //     await feedbackCollection.insertOne({ feedback, rating, createdAt: new Date() });
+
+    //     res.status(201).json({ message: "Feedback submitted successfully" });
+    //   } catch (error) {
+    //     console.error("Error in /feedback route:", error);
+    //     res.status(500).json({ error: "Failed to submit feedback" });
+    //   }
+    // });
+
+    // Feedback submission endpoint
+    app.post("/feedback", async (req, res) => {
+      const { feedback, rating, user_email, name, photo } = req.body;
+
+      // Insert feedback into the database
+      try {
+        await feedbackCollection.insertOne({
+          feedback,
+          rating,
+          user_email,
+          name,
+          photo,
+        });
+        return res
+          .status(201)
+          .json({ message: "Feedback submitted successfully!" });
+      } catch (error) {
+        return res.status(500).json({ error: "Error submitting feedback" });
+      }
+    });
+
+    // New GET API route to retrieve feedback
+    app.get("/feedback", async (req, res) => {
+      try {
+        const feedbackList = await feedbackCollection.find().toArray(); // Fetch all feedback
+
+        res.status(200).json(feedbackList); // Return the feedback as JSON
+      } catch (error) {
+        console.error("Error in /feedback route:", error);
+        res.status(500).json({ error: "Failed to retrieve feedback" });
+      }
+    });
+
+    // Assuming you have already set up your Express app and connected to your database
+    
+
+    // Check current User sent feedback or not
+    app.get("/feedback-status", async (req, res) => {
+      const { email } = req.query; // Retrieve the email from the query parameters
+      const feedback = await feedbackCollection.findOne({ user_email: email });
+
+      if (feedback) {
+        return res.json({ hasSubmitted: true });
+      }
+      return res.json({ hasSubmitted: false });
+    });
+
+    // Customer Feedback related APIs End
 
     /*******************End************************** */
 
