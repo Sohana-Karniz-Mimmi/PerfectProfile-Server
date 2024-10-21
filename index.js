@@ -25,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // const uri = `mongodb://localhost:27017`;
+// const uri = `mongodb://localhost:27017`
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -188,46 +189,51 @@ async function run() {
     });
     // update user info
     app.put(`/user/:email`, async (req, res) => {
-      const filter = { email: req.params.email };
-      const user = req.body;
-
-      const existingUser = await usersCollection.findOne(filter);
-      if (!existingUser) {
-        return res.status(404).send({ message: "User not found" });
-      }
-
-      const currentDate = new Date();
-      const subscriptionDate = new Date(existingUser.createdAt);
-      let productName = user.productName;
-
-      // standard free after 1 month
-      if (existingUser.productName === "standard") {
-        const oneMonthLater = new Date(subscriptionDate);
-        oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-        if (currentDate >= oneMonthLater) {
-          productName = "free";
+      try {
+        const filter = { email: req.params.email };  
+        const user = req.body;  
+        console.log(filter, user);
+    
+        let productName = user.productName;
+        const currentDate = new Date();
+        const subscriptionDate = new Date(user.createdAt || currentDate); 
+    
+        if (productName === "standard") {
+          const oneMonthLater = new Date(subscriptionDate);
+          oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+          if (currentDate >= oneMonthLater) {
+            productName = "free";  
+          }
+        } else if (productName === "premium") {
+          const oneYearLater = new Date(subscriptionDate);
+          oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+          if (currentDate >= oneYearLater) {
+            productName = "free";  
+          }
         }
-      }
-
-      // premium free after 1 year
-      if (existingUser.productName === "premium") {
-        const oneYearLater = new Date(subscriptionDate);
-        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-        if (currentDate >= oneYearLater) {
-          productName = "free";
+ 
+        const updatedDoc = {
+          $set: {
+            productName: productName,
+            amount: user.amount,
+            isRead: user.isRead,
+          },
+        };
+    
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+    
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or no changes made" });
         }
+    
+        console.log(result);
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).send({ message: "An error occurred while updating the user." });
       }
-
-      const updatedDoc = {
-        $set: {
-          productName: productName,
-          amount: user.amount,
-        },
-      };
-
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
     });
+    
 
     /*********Payment System**********/
 
@@ -315,7 +321,6 @@ async function run() {
       const updateData = await paymentCollection.updateOne(query, update);
       console.log("success data", successData);
       console.log("update data", updateData);
-      // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
       res.redirect(
         "http://localhost:5173/predefined-templates"
@@ -333,6 +338,8 @@ async function run() {
       res.redirect("http://localhost:5173");
     });
 
+
+
     /*********Predefined Templates**********/
     //Get all Predefined Templates Data from DB
     app.get(`/predefined-templates`, async (req, res) => {
@@ -348,6 +355,7 @@ async function run() {
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
     });
+    
     
     
     // get all templates for pagination
@@ -367,6 +375,20 @@ async function run() {
       res.send(result);
     });
 
+    //update Predefined Template Data from DB
+    // app.patch(`/templates/email/:id`, async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { templateItem: id };
+    //   const updatedDoc = {
+    //     $set : {
+    //       isFavorite : true
+
+    //     }
+    //   }
+    //   const result = await predefinedTemplatesCollection.findOne(query, updatedDoc);
+    //   res.send(result);
+    // });
+
     // get all the template count from db
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
@@ -381,7 +403,6 @@ async function run() {
     app.post('/my-favorites', async (req, res) => {
       const { email, templateId, image, templatePackage } = req.body; // Add user email, image, and other necessary fields
       
-      // Check if the template is already in favorites
       const existingFavorite = await favoriteCollection.findOne({ email, templateId });
       
       if (!existingFavorite) {
