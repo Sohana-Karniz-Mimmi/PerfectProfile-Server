@@ -15,7 +15,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://perfect-profile-resume.netlify.app",
+      "https://perfectprofile-ebde4.web.app",
     ],
     credentials: true,
   })
@@ -199,51 +199,56 @@ async function run() {
         res.status(500).send({ error: "Internal server error" });
       }
     });
-    // update user info
+
+   // update user info
     app.put(`/user/:email`, async (req, res) => {
-      const filter = { email: req.params.email };
-      const user = req.body;
-
-      const existingUser = await usersCollection.findOne(filter);
-      if (!existingUser) {
-        return res.status(404).send({ message: "User not found" });
-      }
-
-      const currentDate = new Date();
-      const subscriptionDate = new Date(existingUser.createdAt);
-      let productName = user.productName;
-
-      // standard free after 1 month
-      if (existingUser.productName === "standard") {
-        const oneMonthLater = new Date(subscriptionDate);
-        oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-        if (currentDate >= oneMonthLater) {
-          productName = "free";
+      try {
+        const filter = { email: req.params.email };  
+        const user = req.body;  
+        console.log(filter, user);
+    
+        let productName = user.productName;
+        const currentDate = new Date();
+        const subscriptionDate = new Date(user.createdAt || currentDate); 
+    
+        if (productName === "standard") {
+          const oneMonthLater = new Date(subscriptionDate);
+          oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+          if (currentDate >= oneMonthLater) {
+            productName = "free";  
+          }
+        } else if (productName === "premium") {
+          const oneYearLater = new Date(subscriptionDate);
+          oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+          if (currentDate >= oneYearLater) {
+            productName = "free";  
+          }
         }
-      }
-
-      // premium free after 1 year
-      if (existingUser.productName === "premium") {
-        const oneYearLater = new Date(subscriptionDate);
-        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-        if (currentDate >= oneYearLater) {
-          productName = "free";
+ 
+        const updatedDoc = {
+          $set: {
+            productName: productName,
+            amount: user.amount,
+            isRead: user.isRead,
+          },
+        };
+    
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+    
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or no changes made" });
         }
+    
+        console.log(result);
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).send({ message: "An error occurred while updating the user." });
       }
-
-      const updatedDoc = {
-        $set: {
-          productName: productName,
-          amount: user.amount,
-        },
-      };
-
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
     });
+    
 
     /*********Payment System**********/
-
     // Payment intent
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
@@ -255,8 +260,7 @@ async function run() {
         total_amount: paymentInfo.amount * 100,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url:
-          `${process.env.VITE_BACKEND_API_URL}/success-payment`,
+        success_url: `${process.env.VITE_BACKEND_API_URL}/success-payment`,
         fail_url: `${process.env.VITE_BACKEND_API_URL}/fail`,
         cancel_url: `${process.env.VITE_BACKEND_API_URL}/cancel`,
         cus_name: paymentInfo.userName,
@@ -331,9 +335,7 @@ async function run() {
       console.log("update data", updateData);
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect(
-        `${process.env.VITE_FRONTEND_API_URL}/predefined-templates`
-      );
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}/predefined-templates`);
     });
 
     // fail payment
@@ -380,7 +382,27 @@ async function run() {
       res.send(result);
     });
 
+
+    //update Predefined Template Data from DB
+    // app.patch(`/templates/email/:id`, async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { templateItem: id };
+    //   const updatedDoc = {
+    //     $set : {
+    //       isFavorite : true
+
+    //     }
+    //   }
+    //   const result = await predefinedTemplatesCollection.findOne(query, updatedDoc);
+    //   res.send(result);
+    // });
+
+    
+    
+
     // get all the template count from db
+    
+    
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
       console.log(filter);
@@ -449,7 +471,7 @@ async function run() {
         const isExist = await resumeCollection.findOne(query);
 
         if (isExist) {
-          const { _id, resumeLink, ...resumeUpdate } = resume; 
+          const { _id, resumeLink, ...resumeUpdate } = resume;
 
           const result = await resumeCollection.updateOne(query, {
             $set: {
@@ -505,41 +527,7 @@ async function run() {
       }
     });
 
-    // sava Customization Resume data in db
-    // app.post("/share-resume", async (req, res) => {
-    //   // const userId = req.user._id;
-    //   const userData = req.body;
-    //   const customUrl = generateCustomUrl();
-    //   const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
-
-    //   const newResume = {
-    //     // userId: userId,
-    //     resumeLink: resumeLink,
-    //     ...userData,
-    //     createdAt: new Date(),
-    //   };
-
-    //   try {
-    //     const result = await resumeCollection.insertOne(newResume);
-    //     const sendInfo = {
-    //       templateID: result.insertedId,
-    //       userData,
-    //     };
-    //     res.send({
-    //       success: true,
-    //       shareLink: resumeLink,
-    //       sendInfo,
-    //     });
-    //   } catch (error) {
-    //     console.error("Error inserting resume link:", error);
-    //     res
-    //       .status(500)
-    //       .send({ success: false, message: "Failed to generate share link" });
-    //   }
-    // });
-
     //update a img of Template in DB
-    
     app.put(`/share-resume/:id`, async (req, res) => {
       const id = req.params.id;
       const query = { templateItem: id };
