@@ -15,7 +15,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://perfect-profile-resume.netlify.app",
+      "https://perfectprofile-ebde4.web.app",
     ],
     credentials: true,
   })
@@ -25,7 +25,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // const uri = `mongodb://localhost:27017`;
-// const uri = `mongodb://localhost:27017`
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -37,13 +36,10 @@ const client = new MongoClient(uri, {
   },
 });
 
-// const logger = async (req, res, next) => {
-//   console.log("called:", req.host, req.originalUrl);
-//   next();
-// };
+// verify jwt middleware
 const verifyToken = async (req, res, next) => {
-  const token = req.cookie?.token;
-  console.log("value of token in middleware", token);
+  const token = req.cookies.token;
+  // console.log('token', token);
   if (!token) {
     return res.status(401).send({ message: "unAuthorized access" });
   }
@@ -72,30 +68,46 @@ async function run() {
       .db("PerfectProfile")
       .collection("favorite");
 
+    // verify admin middleware
+    const verifyAdmin = async (req, res, next) => {
+      // console.log("hello");
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await usersCollection.findOne(query);
+      // console.log("User Email", user);
+      // console.log("Admin Result Role", result);
+      if (!result || result?.role !== "admin")
+        return res.status(401).send({ message: "unauthorized access!!" });
+
+      next();
+    };
+
     /*****************Start*********************************/
 
     /*********auth related system**********/
+    // jwt token generate route
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log(user);
+      // console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "365d",
       });
       res
-        .cookie("access to the token", token, {
+        .cookie("token", token, {
           httpOnly: true,
           // secure: false,
           secure: process.env.NODE_ENV === "production" ? true : false,
           sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
+      // console.log("jwt token", token);
     });
 
     app.post("/logout", async (req, res) => {
       const user = req.body;
       // console.log("logging out", user);
       res
-        .clearCookie("access to the token", {
+        .clearCookie("token", {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production" ? true : false,
           sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
@@ -187,7 +199,8 @@ async function run() {
         res.status(500).send({ error: "Internal server error" });
       }
     });
-    // update user info
+
+   // update user info
     app.put(`/user/:email`, async (req, res) => {
       try {
         const filter = { email: req.params.email };  
@@ -236,7 +249,6 @@ async function run() {
     
 
     /*********Payment System**********/
-
     // Payment intent
     app.post("/create-payment", async (req, res) => {
       const paymentInfo = req.body;
@@ -248,9 +260,9 @@ async function run() {
         total_amount: paymentInfo.amount * 100,
         currency: paymentInfo.currency,
         tran_id: paymentInfo.tran_id,
-        success_url: "http://localhost:5000/success-payment",
-        fail_url: "http://localhost:5000/fail",
-        cancel_url: "http://localhost:5000/cancel",
+        success_url: `${process.env.VITE_BACKEND_API_URL}/success-payment`,
+        fail_url: `${process.env.VITE_BACKEND_API_URL}/fail`,
+        cancel_url: `${process.env.VITE_BACKEND_API_URL}/cancel`,
         cus_name: paymentInfo.userName,
         cus_email: paymentInfo.email,
         cus_add1: "Dhaka",
@@ -321,24 +333,21 @@ async function run() {
       const updateData = await paymentCollection.updateOne(query, update);
       console.log("success data", successData);
       console.log("update data", updateData);
+      // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect(
-        "http://localhost:5173/predefined-templates"
-      );
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}/predefined-templates`);
     });
 
     // fail payment
     app.post("/fail", async (req, res) => {
-      res.redirect("http://localhost:5173/pricing");
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}/pricing`);
       throw new error("Please try again");
     });
 
     // cancel payment
     app.post("/cancel", async (req, res) => {
-      res.redirect("http://localhost:5173");
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}`);
     });
-
-
 
     /*********Predefined Templates**********/
     //Get all Predefined Templates Data from DB
@@ -355,9 +364,7 @@ async function run() {
       const result = await predefinedTemplatesCollection.findOne(query);
       res.send(result);
     });
-    
-    
-    
+
     // get all templates for pagination
     app.get(`/templates`, async (req, res) => {
       const size = parseInt(req.query.size);
@@ -365,7 +372,7 @@ async function run() {
       const filter = req.query.filter;
       console.log(size, page);
       let query = {};
-      if (filter) query.package = filter
+      if (filter) query.package = filter;
       const result = await predefinedTemplatesCollection
         .find(query)
         // .find()
@@ -374,6 +381,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
+
 
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
@@ -389,36 +397,50 @@ async function run() {
     //   res.send(result);
     // });
 
+    
+    
+
     // get all the template count from db
+    
+    
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
       console.log(filter);
       let query = {};
-      if (filter) query.package = filter     
+      if (filter) query.package = filter;
       const count = await predefinedTemplatesCollection.countDocuments(query);
       res.send({ count });
     });
 
     // post add to favorite from user
-    app.post('/my-favorites', async (req, res) => {
+    app.post("/my-favorites", async (req, res) => {
       const { email, templateId, image, templatePackage } = req.body; // Add user email, image, and other necessary fields
-      
-      const existingFavorite = await favoriteCollection.findOne({ email, templateId });
-      
+
+      // Check if the template is already in favorites
+      const existingFavorite = await favoriteCollection.findOne({
+        email,
+        templateId,
+      });
+
       if (!existingFavorite) {
-        const favoriteData = { email, templateId, image, package: templatePackage }; // Store user email and template info
+        const favoriteData = {
+          email,
+          templateId,
+          image,
+          package: templatePackage,
+        }; // Store user email and template info
         const result = await favoriteCollection.insertOne(favoriteData); // Insert into DB
         res.send(result);
       } else {
-        res.status(400).send({ message: 'Template already in favorites' });
+        res.status(400).send({ message: "Template already in favorites" });
       }
     });
     // get favorite templates from user
-    app.get('/my-favorites/:email',async(req,res) =>{
-      const query = {email : req.params.email}
-      const result = await favoriteCollection.find(query).toArray()
-      res.send(result)
-    })
+    app.get("/my-favorites/:email", async (req, res) => {
+      const query = { email: req.params.email };
+      const result = await favoriteCollection.find(query).toArray();
+      res.send(result);
+    });
 
     // delete favorite templates
     app.delete("/my-favorites/:id", async (req, res) => {
@@ -434,37 +456,91 @@ async function run() {
       return Math.random().toString(36).substring(2, 15);
     };
 
-    // sava Customization Resume data in db
-    app.post("/share-resume", async (req, res) => {
-      // const userId = req.user._id;
-      const userData = req.body;
-      const customUrl = generateCustomUrl();
-      const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${customUrl}`;
+    // Save and Update Customization Resume data in db
+    app.put("/customize-resume", async (req, res) => {
+      const resume = req.body;
+      const id = resume?.resumeId;
 
-      const newResume = {
-        // userId: userId,
-        resumeLink: resumeLink,
-        ...userData,
-        createdAt: new Date(),
-      };
+      // console.log("Resume ID:", id);
+
+      const customUrl = generateCustomUrl();
+      const resumeLink = `${process.env.VITE_FRONTEND_API_URL}/resume/${customUrl}`;
+      const query = { _id: new ObjectId(id) };
 
       try {
-        const result = await resumeCollection.insertOne(newResume);
-        const sendInfo = {
-          templateID: result.insertedId,
-          userData,
-        };
-        res.send({
-          success: true,
-          shareLink: resumeLink,
-          sendInfo,
-        });
+        const isExist = await resumeCollection.findOne(query);
+
+        if (isExist) {
+          const { _id, resumeLink, ...resumeUpdate } = resume;
+
+          const result = await resumeCollection.updateOne(query, {
+            $set: {
+              ...resumeUpdate,
+            },
+          });
+
+          if (result.modifiedCount > 0) {
+            const sendInfo = {
+              templateID: id,
+              userData: resume,
+            };
+            return res.send({
+              success: true,
+              message: "Resume updated successfully",
+              shareLink: resumeLink,
+              sendInfo,
+            });
+          } else {
+            return res
+              .status(400)
+              .send({ success: false, message: "Failed to update resume" });
+          }
+        } else {
+          const newResume = {
+            resumeLink: resumeLink,
+            ...resume,
+            timestamp: Date.now(),
+          };
+
+          const insertResult = await resumeCollection.insertOne(newResume);
+          if (insertResult.insertedId) {
+            const sendInfo = {
+              templateID: insertResult.insertedId,
+              userData: resume,
+            };
+            return res.send({
+              success: true,
+              shareLink: resumeLink,
+              sendInfo,
+            });
+          } else {
+            return res
+              .status(500)
+              .send({ success: false, message: "Failed to insert new resume" });
+          }
+        }
       } catch (error) {
-        console.error("Error inserting resume link:", error);
-        res
+        console.error("Error handling resume data:", error);
+        return res
           .status(500)
-          .send({ success: false, message: "Failed to generate share link" });
+          .send({ success: false, message: "Internal server error" });
       }
+    });
+
+    //update a img of Template in DB
+    app.put(`/share-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { templateItem: id };
+      // const filter = {}
+      const profile = req.body;
+      const updatedDoc = {
+        $set: {
+          image: profile?.image,
+        },
+      };
+
+      const result = await resumeCollection.updateOne(query, updatedDoc);
+      res.send(result);
     });
 
     // get a single customize resume data from  db
@@ -484,18 +560,17 @@ async function run() {
       const id = req.params.id;
       const query = { templateItem: id };
       // const filter = {}
-      const profile = req.body
-     
+      const profile = req.body;
+
       const updatedDoc = {
-        $set : {
-          image : profile?.image
-        }
-      }
+        $set: {
+          image: profile?.image,
+        },
+      };
 
-      const result = await resumeCollection.updateOne(query, updatedDoc)
-     res.send(result)
+      const result = await resumeCollection.updateOne(query, updatedDoc);
+      res.send(result);
     });
-
 
     /*********Live URL Generate**********/
 
@@ -508,7 +583,7 @@ async function run() {
     // Get a single resume data from db for View Resume via live URL
     app.get("/resume/:link", async (req, res) => {
       try {
-        const resumeLink = `https://perfect-profile-resume.netlify.app/resume/${req.params.link}`;
+        const resumeLink = `${process.env.VITE_FRONTEND_API_URL}/resume/${req.params.link}`;
         const resumeData = await resumeCollection.findOne({
           resumeLink: resumeLink,
         });
@@ -537,7 +612,6 @@ async function run() {
     app.get("/my-resume/:email", async (req, res) => {
       const email = req.params.email;
       // console.log(email);
-
       const query = { user_email: email };
       try {
         const result = await resumeCollection.find(query).toArray();
@@ -560,25 +634,6 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await resumeCollection.findOne(query);
-      res.send(result);
-    });
-
-    // Update a Resume Data in db
-    app.put(`/my-resume/:id`, async (req, res) => {
-      const id = req.params.id;
-      const resume = req.body;
-      const query = { _id: new ObjectId(id) };
-      const options = { upsert: true };
-      const updateResume = {
-        $set: {
-          ...resume,
-        },
-      };
-      const result = await resumeCollection.updateOne(
-        query,
-        updateResume,
-        options
-      );
       res.send(result);
     });
 
