@@ -67,6 +67,9 @@ async function run() {
     const favoriteCollection = client
       .db("PerfectProfile")
       .collection("favorite");
+    const feedbackCollection = client
+      .db("PerfectProfile")
+      .collection("feedback");
 
     // verify admin middleware
     const verifyAdmin = async (req, res, next) => {
@@ -200,31 +203,31 @@ async function run() {
       }
     });
 
-   // update user info
+    // update user info
     app.put(`/user/:email`, async (req, res) => {
       try {
-        const filter = { email: req.params.email };  
-        const user = req.body;  
+        const filter = { email: req.params.email };
+        const user = req.body;
         console.log(filter, user);
-    
+
         let productName = user.productName;
         const currentDate = new Date();
-        const subscriptionDate = new Date(user.createdAt || currentDate); 
-    
+        const subscriptionDate = new Date(user.createdAt || currentDate);
+
         if (productName === "standard") {
           const oneMonthLater = new Date(subscriptionDate);
           oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
           if (currentDate >= oneMonthLater) {
-            productName = "free";  
+            productName = "free";
           }
         } else if (productName === "premium") {
           const oneYearLater = new Date(subscriptionDate);
           oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
           if (currentDate >= oneYearLater) {
-            productName = "free";  
+            productName = "free";
           }
         }
- 
+
         const updatedDoc = {
           $set: {
             productName: productName,
@@ -232,21 +235,24 @@ async function run() {
             isRead: user.isRead,
           },
         };
-    
+
         const result = await usersCollection.updateOne(filter, updatedDoc);
-    
+
         if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "User not found or no changes made" });
+          return res
+            .status(404)
+            .send({ message: "User not found or no changes made" });
         }
-    
+
         console.log(result);
         res.send(result);
       } catch (error) {
         console.error("Error updating user:", error);
-        res.status(500).send({ message: "An error occurred while updating the user." });
+        res
+          .status(500)
+          .send({ message: "An error occurred while updating the user." });
       }
     });
-    
 
     /*********Payment System**********/
     // Payment intent
@@ -382,7 +388,6 @@ async function run() {
       res.send(result);
     });
 
-
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
     //   const id = req.params.id;
@@ -397,12 +402,8 @@ async function run() {
     //   res.send(result);
     // });
 
-    
-    
-
     // get all the template count from db
-    
-    
+
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
       console.log(filter);
@@ -636,6 +637,82 @@ async function run() {
       const result = await resumeCollection.findOne(query);
       res.send(result);
     });
+
+    // Update a Resume Data in db
+    app.put(`/my-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      const resume = req.body;
+      const query = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateResume = {
+        $set: {
+          ...resume,
+        },
+      };
+      const result = await resumeCollection.updateOne(
+        query,
+        updateResume,
+        options
+      );
+      res.send(result);
+    });
+
+    // Customer Feedback related APIs Start
+
+    // POST /feedback
+    app.post("/feedback", async (req, res) => {
+      const { feedback, rating, email, name, photo } = req.body;
+
+      // Insert feedback into the database
+      try {
+        await feedbackCollection.insertOne({
+          feedback,
+          rating,
+          email,
+          name,
+          photo,
+          createdAt: new Date(), // Optional: timestamp for the feedback
+        });
+        return res
+          .status(201)
+          .json({ message: "Feedback submitted successfully!" });
+      } catch (error) {
+        console.error("Error submitting feedback:", error);
+        return res.status(500).json({ error: "Error submitting feedback" });
+      }
+    });
+
+    // GET API route to retrieve feedback
+    app.get("/feedback", async (req, res) => {
+      try {
+        const feedbackList = await feedbackCollection.find().toArray(); // Fetch all feedback
+        res.status(200).json(feedbackList); // Return the feedback as JSON
+      } catch (error) {
+        console.error("Error in /feedback route:", error);
+        res.status(500).json({ error: "Failed to retrieve feedback" });
+      }
+    });
+
+    // GET /check-feedback
+    app.get("/check-feedback", async (req, res) => {
+      const email = req.query.email; // Get email from query parameters
+
+      try {
+        const feedback = await feedbackCollection.findOne({ email }); // Check for feedback entry
+        if (feedback) {
+          return res.status(200).json({ hasSubmitted: true });
+        } else {
+          return res.status(200).json({ hasSubmitted: false });
+        }
+      } catch (error) {
+        console.error("Error checking feedback submission:", error);
+        return res
+          .status(500)
+          .json({ error: "Error checking feedback submission" });
+      }
+    });
+
+    // Customer Feedback related APIs End
 
     /*******************End************************** */
 
