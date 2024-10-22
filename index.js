@@ -15,7 +15,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://perfect-profile-resume.netlify.app",
+      "https://perfectprofile-ebde4.web.app",
     ],
     credentials: true,
   })
