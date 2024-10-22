@@ -570,26 +570,6 @@ async function run() {
 
     // Customer Feedback related APIs Start
 
-    // Feedback API route
-    // app.post("/feedback", async (req, res) => {
-    //   try {
-    //     const { feedback, rating } = req.body;
-
-    //     // Validate feedback
-    //     if (!feedback) {
-    //       return res.status(400).json({ error: "Feedback is required" });
-    //     }
-
-    //     // Insert feedback into the collection
-    //     await feedbackCollection.insertOne({ feedback, rating, createdAt: new Date() });
-
-    //     res.status(201).json({ message: "Feedback submitted successfully" });
-    //   } catch (error) {
-    //     console.error("Error in /feedback route:", error);
-    //     res.status(500).json({ error: "Failed to submit feedback" });
-    //   }
-    // });
-
     // Feedback submission endpoint
     app.post("/feedback", async (req, res) => {
       const { feedback, rating, user_email, name, photo } = req.body;
