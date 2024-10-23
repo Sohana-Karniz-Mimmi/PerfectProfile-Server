@@ -118,6 +118,12 @@ async function run() {
       res.send(result);
     });
 
+    // get all the user
+    app.get(`/user`, async(req, res)=>{
+      const result = await usersCollection.find().toArray()
+      res.send(result)
+    })
+
     // get a user info by email from db
     app.get("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -134,6 +140,8 @@ async function run() {
         res.status(500).json({ message: "Server error" });
       }
     });
+
+   
 
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
@@ -189,7 +197,7 @@ async function run() {
         res.status(500).send({ error: "Internal server error" });
       }
     });
-    // update user info
+    // update user info for after payment
     app.put(`/user/:email`, async (req, res) => {
       try {
         const filter = { email: req.params.email };  
@@ -235,6 +243,30 @@ async function run() {
         res.status(500).send({ message: "An error occurred while updating the user." });
       }
     });
+
+    // update user info after request to be a consultant
+    app.put(`/consultant-info/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          experience : user.experience,
+          resume : user.resume,
+          expertise : user.expertise,      
+          requestedAt: user.requestedAt,
+          request: "pending"
+
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+
+    })
     
 
     /*********Payment System**********/
