@@ -71,6 +71,8 @@ async function run() {
     const favoriteCollection = client
       .db("PerfectProfile")
       .collection("favorite");
+      const consultantsCollection = client.db("PerfectProfile").collection("consultants");
+
 
     /*****************Start*********************************/
 
@@ -373,7 +375,8 @@ async function run() {
         .limit(size)
         .toArray();
       res.send(result);
-    });
+    }
+  );
 
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
@@ -581,6 +584,24 @@ async function run() {
       );
       res.send(result);
     });
+
+
+
+ /*******************Consultation related************************** */
+
+    // consultant info from admin
+    app.post(`/consultant-info`, async(req, res)=>{
+      const consultantData = req.body
+      console.log(consultantData)
+      const result = await consultantsCollection.insertOne(consultantData)
+      res.send(result)
+    })
+
+    // get all the consultant info for admin
+    app.get(`/consultant-info`, async(req, res)=>{
+      const result = await consultantsCollection.find().toArray()
+      res.send(result)
+    })
 
     /*******************End************************** */
 
