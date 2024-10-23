@@ -24,8 +24,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// const uri = `mongodb://localhost:27017`;
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb://localhost:27017`;
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -250,6 +250,28 @@ async function run() {
           .send({ message: "An error occurred while updating the user." });
       }
     });
+
+    app.patch("/user/:id", async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body;
+
+      try {
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role: role } } // রোল ফিল্ড আপডেট
+        );
+
+        if (result.modifiedCount > 0) {
+          res.status(200).send({ message: "User role updated successfully" });
+        } else {
+          res.status(404).send({ message: "User not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Error updating user role", error });
+      }
+    });
+
+    // update users role
 
     /*********Payment System**********/
     // Payment intent
