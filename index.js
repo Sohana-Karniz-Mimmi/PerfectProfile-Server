@@ -200,31 +200,31 @@ async function run() {
       }
     });
 
-   // update user info
+    // update user info
     app.put(`/user/:email`, async (req, res) => {
       try {
-        const filter = { email: req.params.email };  
-        const user = req.body;  
+        const filter = { email: req.params.email };
+        const user = req.body;
         console.log(filter, user);
-    
+
         let productName = user.productName;
         const currentDate = new Date();
-        const subscriptionDate = new Date(user.createdAt || currentDate); 
-    
+        const subscriptionDate = new Date(user.createdAt || currentDate);
+
         if (productName === "standard") {
           const oneMonthLater = new Date(subscriptionDate);
           oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
           if (currentDate >= oneMonthLater) {
-            productName = "free";  
+            productName = "free";
           }
         } else if (productName === "premium") {
           const oneYearLater = new Date(subscriptionDate);
           oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
           if (currentDate >= oneYearLater) {
-            productName = "free";  
+            productName = "free";
           }
         }
- 
+
         const updatedDoc = {
           $set: {
             productName: productName,
@@ -232,21 +232,24 @@ async function run() {
             isRead: user.isRead,
           },
         };
-    
+
         const result = await usersCollection.updateOne(filter, updatedDoc);
-    
+
         if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "User not found or no changes made" });
+          return res
+            .status(404)
+            .send({ message: "User not found or no changes made" });
         }
-    
+
         console.log(result);
         res.send(result);
       } catch (error) {
         console.error("Error updating user:", error);
-        res.status(500).send({ message: "An error occurred while updating the user." });
+        res
+          .status(500)
+          .send({ message: "An error occurred while updating the user." });
       }
     });
-    
 
     /*********Payment System**********/
     // Payment intent
@@ -349,6 +352,41 @@ async function run() {
       res.redirect(`${process.env.VITE_FRONTEND_API_URL}`);
     });
 
+    // Route to get total amount and all documents
+    app.get("/payments", async (req, res) => {
+      try {
+        // Query parameters from the client
+        const { page = 1, limit = 10 } = req.query;
+        const pageNumber = parseInt(page, 10); // Convert to a number
+        const limitNumber = parseInt(limit, 10); // Convert to a number
+
+        const payments = await paymentCollection
+          .find()
+          .limit(limitNumber) // Limit the results to 'limit'
+          .skip((pageNumber - 1) * limitNumber)
+          .toArray(); // Skip items for previous pages
+
+        // Calculate total amount
+        let totalAmount = 0;
+        payments.forEach((payment) => {
+          totalAmount += parseFloat(payment.amount / 100); // Ensure amount is a float
+        });
+
+        // Get total number of documents for pagination info
+        const total = await paymentCollection.countDocuments();
+
+        res.json({
+          totalAmount: totalAmount.toFixed(2), // Two decimal places for totalAmount
+          payments,
+          totalPages: Math.ceil(total / limitNumber), // Total number of pages
+          currentPage: pageNumber,
+        });
+      } catch (err) {
+        console.error("Server Error: ", err.message);
+        res.status(500).json({ message: "Server Error", error: err.message });
+      }
+    });
+
     /*********Predefined Templates**********/
     //Get all Predefined Templates Data from DB
     app.get(`/predefined-templates`, async (req, res) => {
@@ -382,7 +420,6 @@ async function run() {
       res.send(result);
     });
 
-
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
     //   const id = req.params.id;
@@ -397,12 +434,8 @@ async function run() {
     //   res.send(result);
     // });
 
-    
-    
-
     // get all the template count from db
-    
-    
+
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
       console.log(filter);
