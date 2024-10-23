@@ -41,17 +41,18 @@ const verifyToken = async (req, res, next) => {
   const token = req.cookies.token;
   // console.log('token', token);
   if (!token) {
-    return res.status(401).send({ message: "unAuthorized access" });
+    return res.status(401).send({ message: "Unauthorized access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(401).send({ message: "unAuthorized access" });
+      return res.status(401).send({ message: "Unauthorized access" });
     }
     console.log("value in the token", decoded);
     req.user = decoded;
     next();
   });
 };
+
 async function run() {
   try {
     // await client.connect();
@@ -119,6 +120,23 @@ async function run() {
         .send({ success: true });
     });
 
+    app.post("/protected", (req, res) => {
+      return res.json({ user: { id: req.userId, role: req.userRole } });
+    });
+
+    // app.post("/logout", async (req, res) => {
+    //   const user = req.body;
+    //   // console.log("logging out", user);
+    //   res
+    //     .clearCookie("access_token", {
+    //       httpOnly: true,
+    //       secure: process.env.NODE_ENV === "production" ? true : false,
+    //       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //       maxAge: 0,
+    //     })
+    //     .send({ success: true });
+    // });
+
     // user related work
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -129,6 +147,36 @@ async function run() {
       }
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.patch("/updateProfile/:email", async (req, res) => {
+      const { email } = req.params;
+      const updatedProfile = req.body;
+
+      const filter = { email: email };
+
+      const updatedDoc = {
+        $set: {
+          name: updatedProfile.name,
+          email: updatedProfile.email,
+          photoURL: updatedProfile.photoURL,
+        },
+      };
+
+      try {
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+
+        // check if the update was successful
+        if (result.modifiedCount > 0) {
+          res
+            .status(200)
+            .send({ message: "Profile updated successfully", result });
+        } else {
+          res.status(404).send({ message: "User not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update profile", error });
+      }
     });
 
     // get a user info by email from db
@@ -318,6 +366,27 @@ async function run() {
         res
           .status(500)
           .send({ message: "An error occurred during the payment process" });
+      }
+    });
+    // get payment history
+
+    app.get("/payment-transaction/:email", async (req, res) => {
+      const email = req.params.email;
+      // console.log(email);
+      const query = { cus_email: email };
+      try {
+        const result = await paymentCollection.find(query).toArray();
+        // console.log(result);
+        if (result.length === 0) {
+          return res
+            .status(404)
+            .send({ message: "No transaction found for this email" });
+        }
+        res.send(result);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Error retrieving transaction", error: err });
       }
     });
 
