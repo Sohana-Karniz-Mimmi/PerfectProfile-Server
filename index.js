@@ -150,10 +150,10 @@ async function run() {
     });
 
     // get all the user
-    app.get(`/user`, async(req, res)=>{
-      const result = await usersCollection.find().toArray()
-      res.send(result)
-    })
+    app.get(`/user`, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
     app.patch("/updateProfile/:email", async (req, res) => {
       const { email } = req.params;
       const updatedProfile = req.body;
@@ -200,8 +200,6 @@ async function run() {
         res.status(500).json({ message: "Server error" });
       }
     });
-
-   
 
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
@@ -308,30 +306,48 @@ async function run() {
       }
     });
 
-    // update user info after request to be a consultant
-    app.put(`/consultant-info/user/:email`, async(req, res)=>{
-      const filter = {email : req.params.email}
-      const user = req.body
-      const updatedDoc = {
-        $set : {
-          name : user.name,
-          email : user.email,
-          number : user.number,
-          experience : user.experience,
-          resume : user.resume,
-          expertise : user.expertise,      
-          requestedAt: user.requestedAt,
-          request: "pending"
+    app.patch("/user/:id", async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body;
 
+      try {
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role: role } } // রোল ফিল্ড আপডেট
+        );
+
+        if (result.modifiedCount > 0) {
+          res.status(200).send({ message: "User role updated successfully" });
+        } else {
+          res.status(404).send({ message: "User not found" });
         }
+      } catch (error) {
+        res.status(500).send({ message: "Error updating user role", error });
       }
-      console.log(updatedDoc)
+    });
 
-      const result = await usersCollection.updateOne(filter, updatedDoc)
-      res.send(result)
+    // update users role
+    // update user info after request to be a consultant
+    app.put(`/consultant-info/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
+      const updatedDoc = {
+        $set: {
+          name: user.name,
+          email: user.email,
+          number: user.number,
+          experience: user.experience,
+          resume: user.resume,
+          expertise: user.expertise,
+          requestedAt: user.requestedAt,
+          request: "pending",
+        },
+      };
+      console.log(updatedDoc);
 
-    })
-    
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     /*********Payment System**********/
     // Payment intent
@@ -441,6 +457,41 @@ async function run() {
       res.redirect(`${process.env.VITE_FRONTEND_API_URL}`);
     });
 
+    // Route to get total amount and all documents
+    app.get("/payments", async (req, res) => {
+      try {
+        // Query parameters from the client
+        const { page = 1, limit = 10 } = req.query;
+        const pageNumber = parseInt(page, 10); // Convert to a number
+        const limitNumber = parseInt(limit, 10); // Convert to a number
+
+        const payments = await paymentCollection
+          .find()
+          .limit(limitNumber) // Limit the results to 'limit'
+          .skip((pageNumber - 1) * limitNumber)
+          .toArray(); // Skip items for previous pages
+
+        // Calculate total amount
+        let totalAmount = 0;
+        payments.forEach((payment) => {
+          totalAmount += parseFloat(payment.amount / 100); // Ensure amount is a float
+        });
+
+        // Get total number of documents for pagination info
+        const total = await paymentCollection.countDocuments();
+
+        res.json({
+          totalAmount: totalAmount.toFixed(2), // Two decimal places for totalAmount
+          payments,
+          totalPages: Math.ceil(total / limitNumber), // Total number of pages
+          currentPage: pageNumber,
+        });
+      } catch (err) {
+        console.error("Server Error: ", err.message);
+        res.status(500).json({ message: "Server Error", error: err.message });
+      }
+    });
+
     /*********Predefined Templates**********/
     //Get all Predefined Templates Data from DB
     app.get(`/predefined-templates`, async (req, res) => {
@@ -472,8 +523,7 @@ async function run() {
         .limit(size)
         .toArray();
       res.send(result);
-    }
-  );
+    });
 
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
