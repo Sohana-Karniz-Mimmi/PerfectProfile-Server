@@ -371,23 +371,9 @@ async function run() {
     // get payment history
 
     app.get("/payment-transaction/:email", async (req, res) => {
-      const email = req.params.email;
-      // console.log(email);
-      const query = { cus_email: email };
-      try {
-        const result = await paymentCollection.find(query).toArray();
-        // console.log(result);
-        if (result.length === 0) {
-          return res
-            .status(404)
-            .send({ message: "No transaction found for this email" });
-        }
-        res.send(result);
-      } catch (err) {
-        res
-          .status(500)
-          .send({ message: "Error retrieving transaction", error: err });
-      }
+      const query = { cus_email: req.params.email };
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Success payment
@@ -680,23 +666,9 @@ async function run() {
 
     // Get resume by user email
     app.get("/my-resume/:email", async (req, res) => {
-      const email = req.params.email;
-      // console.log(email);
-      const query = { user_email: email };
-      try {
-        const result = await resumeCollection.find(query).toArray();
-        // console.log(result);
-        if (result.length === 0) {
-          return res
-            .status(404)
-            .send({ message: "No resume found for this email" });
-        }
-        res.send(result);
-      } catch (err) {
-        res
-          .status(500)
-          .send({ message: "Error retrieving resume", error: err });
-      }
+      const query = { user_email: req.params.email };
+      const result = await resumeCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Get a single resume data from db using user id
