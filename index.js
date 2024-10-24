@@ -154,6 +154,9 @@ async function run() {
       const result = await usersCollection.find().toArray()
       res.send(result)
     })
+
+
+
     app.patch("/updateProfile/:email", async (req, res) => {
       const { email } = req.params;
       const updatedProfile = req.body;
@@ -308,6 +311,8 @@ async function run() {
       }
     });
 
+
+
     // update user info after request to be a consultant
     app.put(`/consultant-info/user/:email`, async(req, res)=>{
       const filter = {email : req.params.email}
@@ -321,7 +326,8 @@ async function run() {
           resume : user.resume,
           expertise : user.expertise,      
           requestedAt: user.requestedAt,
-          request: "pending"
+          request: user.request,
+  
 
         }
       }
@@ -331,6 +337,101 @@ async function run() {
       res.send(result)
 
     })
+    // update user info after booking
+    app.put(`/booking-info/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          resume : user.resume,           
+         currentJob : user.currentJob,
+          currentIndustry : user.currentIndustry,
+          desiredJob : user.desiredJob, 
+          desiredIndustry : user.desiredIndustry, 
+          consultant : user.consultant,  
+          bookingRequestedAt: user.bookingRequestedAt,
+          bookingRequest : user.bookingRequest
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+
+    })
+    // update user info after booking rejected by consultant
+    app.put(`/user/declined-session/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          bookingRequest : "rejected"
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+
+    })
+
+
+
+
+
+
+    // update user by id if rejected to be a consultant by admin
+    app.patch(`/user/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const user = req.body    
+      try {
+        const updatedDoc = {
+          $set: {
+            request: "rejected" 
+          }
+        };
+    
+        const result = await usersCollection.updateOne(query, updatedDoc);
+    
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or request field not present." });
+        }
+    
+        res.send({ message: "Request field removed successfully", result });
+      } catch (error) {
+        console.error("Error removing request field:", error);
+        res.status(500).send({ message: "An error occurred while removing the request field." });
+      }
+    });
+    // make consultant by admin
+    app.patch(`/user/make-consultant/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const user = req.body    
+      try {
+        const updatedDoc = {
+          $set: {
+            role: "consultant" 
+          }
+        };
+    
+        const result = await usersCollection.updateOne(query, updatedDoc);
+    
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or request field not present." });
+        }
+    
+        res.send({ message: "Request field removed successfully", result });
+      } catch (error) {
+        console.error("Error removing request field:", error);
+        res.status(500).send({ message: "An error occurred while removing the request field." });
+      }
+    });
+    
     
 
     /*********Payment System**********/
