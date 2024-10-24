@@ -24,8 +24,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-const uri = `mongodb://localhost:27017`;
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+// const uri = `mongodb://localhost:27017`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2xcjib6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -41,17 +41,18 @@ const verifyToken = async (req, res, next) => {
   const token = req.cookies.token;
   // console.log('token', token);
   if (!token) {
-    return res.status(401).send({ message: "unAuthorized access" });
+    return res.status(401).send({ message: "Unauthorized access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(401).send({ message: "unAuthorized access" });
+      return res.status(401).send({ message: "Unauthorized access" });
     }
     console.log("value in the token", decoded);
     req.user = decoded;
     next();
   });
 };
+
 async function run() {
   try {
     // await client.connect();
@@ -67,6 +68,9 @@ async function run() {
     const favoriteCollection = client
       .db("PerfectProfile")
       .collection("favorite");
+    const feedbackCollection = client
+      .db("PerfectProfile")
+      .collection("feedback");
 
     // verify admin middleware
     const verifyAdmin = async (req, res, next) => {
@@ -116,6 +120,23 @@ async function run() {
         .send({ success: true });
     });
 
+    app.post("/protected", (req, res) => {
+      return res.json({ user: { id: req.userId, role: req.userRole } });
+    });
+
+    // app.post("/logout", async (req, res) => {
+    //   const user = req.body;
+    //   // console.log("logging out", user);
+    //   res
+    //     .clearCookie("access_token", {
+    //       httpOnly: true,
+    //       secure: process.env.NODE_ENV === "production" ? true : false,
+    //       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //       maxAge: 0,
+    //     })
+    //     .send({ success: true });
+    // });
+
     // user related work
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -126,6 +147,41 @@ async function run() {
       }
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    // get all the user
+    app.get(`/user`, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+    app.patch("/updateProfile/:email", async (req, res) => {
+      const { email } = req.params;
+      const updatedProfile = req.body;
+
+      const filter = { email: email };
+
+      const updatedDoc = {
+        $set: {
+          name: updatedProfile.name,
+          email: updatedProfile.email,
+          photoURL: updatedProfile.photoURL,
+        },
+      };
+
+      try {
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+
+        // check if the update was successful
+        if (result.modifiedCount > 0) {
+          res
+            .status(200)
+            .send({ message: "Profile updated successfully", result });
+        } else {
+          res.status(404).send({ message: "User not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update profile", error });
+      }
     });
 
     // get a user info by email from db
@@ -199,8 +255,7 @@ async function run() {
         res.status(500).send({ error: "Internal server error" });
       }
     });
-
-    // update user info
+    // update user info for after payment
     app.put(`/user/:email`, async (req, res) => {
       try {
         const filter = { email: req.params.email };
@@ -272,6 +327,27 @@ async function run() {
     });
 
     // update users role
+    // update user info after request to be a consultant
+    app.put(`/consultant-info/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
+      const updatedDoc = {
+        $set: {
+          name: user.name,
+          email: user.email,
+          number: user.number,
+          experience: user.experience,
+          resume: user.resume,
+          expertise: user.expertise,
+          requestedAt: user.requestedAt,
+          request: "pending",
+        },
+      };
+      console.log(updatedDoc);
+
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     /*********Payment System**********/
     // Payment intent
@@ -338,6 +414,13 @@ async function run() {
           .status(500)
           .send({ message: "An error occurred during the payment process" });
       }
+    });
+    // get payment history
+
+    app.get("/payment-transaction/:email", async (req, res) => {
+      const query = { cus_email: req.params.email };
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Success payment
@@ -665,23 +748,9 @@ async function run() {
 
     // Get resume by user email
     app.get("/my-resume/:email", async (req, res) => {
-      const email = req.params.email;
-      // console.log(email);
-      const query = { user_email: email };
-      try {
-        const result = await resumeCollection.find(query).toArray();
-        // console.log(result);
-        if (result.length === 0) {
-          return res
-            .status(404)
-            .send({ message: "No resume found for this email" });
-        }
-        res.send(result);
-      } catch (err) {
-        res
-          .status(500)
-          .send({ message: "Error retrieving resume", error: err });
-      }
+      const query = { user_email: req.params.email };
+      const result = await resumeCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Get a single resume data from db using user id
@@ -691,6 +760,82 @@ async function run() {
       const result = await resumeCollection.findOne(query);
       res.send(result);
     });
+
+    // Update a Resume Data in db
+    app.put(`/my-resume/:id`, async (req, res) => {
+      const id = req.params.id;
+      const resume = req.body;
+      const query = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateResume = {
+        $set: {
+          ...resume,
+        },
+      };
+      const result = await resumeCollection.updateOne(
+        query,
+        updateResume,
+        options
+      );
+      res.send(result);
+    });
+
+    // Customer Feedback related APIs Start
+
+    // POST /feedback
+    app.post("/feedback", async (req, res) => {
+      const { feedback, rating, email, name, photo } = req.body;
+
+      // Insert feedback into the database
+      try {
+        await feedbackCollection.insertOne({
+          feedback,
+          rating,
+          email,
+          name,
+          photo,
+          createdAt: new Date(), // Optional: timestamp for the feedback
+        });
+        return res
+          .status(201)
+          .json({ message: "Feedback submitted successfully!" });
+      } catch (error) {
+        console.error("Error submitting feedback:", error);
+        return res.status(500).json({ error: "Error submitting feedback" });
+      }
+    });
+
+    // GET API route to retrieve feedback
+    app.get("/feedback", async (req, res) => {
+      try {
+        const feedbackList = await feedbackCollection.find().toArray(); // Fetch all feedback
+        res.status(200).json(feedbackList); // Return the feedback as JSON
+      } catch (error) {
+        console.error("Error in /feedback route:", error);
+        res.status(500).json({ error: "Failed to retrieve feedback" });
+      }
+    });
+
+    // GET /check-feedback
+    app.get("/check-feedback", async (req, res) => {
+      const email = req.query.email; // Get email from query parameters
+
+      try {
+        const feedback = await feedbackCollection.findOne({ email }); // Check for feedback entry
+        if (feedback) {
+          return res.status(200).json({ hasSubmitted: true });
+        } else {
+          return res.status(200).json({ hasSubmitted: false });
+        }
+      } catch (error) {
+        console.error("Error checking feedback submission:", error);
+        return res
+          .status(500)
+          .json({ error: "Error checking feedback submission" });
+      }
+    });
+
+    // Customer Feedback related APIs End
 
     /*******************End************************** */
 
