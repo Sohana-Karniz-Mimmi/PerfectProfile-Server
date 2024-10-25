@@ -362,10 +362,26 @@ async function run() {
       res.send(result)
 
     })
+
+    // update user info after accepting session by consultant
+    app.patch(`/accept-session/user/:id`, async(req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
+      const updatedDoc = {
+        $set : {
+          bookingRequest : "accepted"
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(query, updatedDoc)
+      res.send(result)
+
+    })
     // update user info after booking rejected by consultant
-    app.put(`/user/declined-session/:email`, async(req, res)=>{
-      const filter = {email : req.params.email}
-      const user = req.body
+    app.patch(`/user/declined-session/:id`, async(req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
       const updatedDoc = {
         $set : {
           bookingRequest : "rejected"
@@ -373,7 +389,7 @@ async function run() {
       }
       console.log(updatedDoc)
 
-      const result = await usersCollection.updateOne(filter, updatedDoc)
+      const result = await usersCollection.updateOne(query, updatedDoc)
       res.send(result)
 
     })
@@ -387,7 +403,6 @@ async function run() {
     app.patch(`/user/:id`, async (req, res) => {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
-      const user = req.body    
       try {
         const updatedDoc = {
           $set: {
@@ -407,15 +422,16 @@ async function run() {
         res.status(500).send({ message: "An error occurred while removing the request field." });
       }
     });
+
     // make consultant by admin
-    app.patch(`/user/make-consultant/:id`, async (req, res) => {
+    app.patch(`/make-consultant/user/:id`, async (req, res) => {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
-      const user = req.body    
       try {
         const updatedDoc = {
           $set: {
-            role: "consultant" 
+            role: "consultant" ,
+            request : "accepted"
           }
         };
     
