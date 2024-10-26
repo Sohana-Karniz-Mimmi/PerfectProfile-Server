@@ -337,6 +337,31 @@ async function run() {
       res.send(result)
 
     })
+
+
+    // update consultant info after editing profile
+    app.patch(`/consultant-info-update/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          experience : user.experience,
+         address : user.address,
+          expertise : user.expertise,
+          about: user.about,
+          facebook : user.facebook,
+          twitter : user.twitter,
+          linkdin : user.linkdin,
+          image : user.image      
+        }
+      }
+      console.log(updatedDoc)
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
     // update user info after booking
     app.put(`/booking-info/user/:email`, async(req, res)=>{
       const filter = {email : req.params.email}
@@ -362,10 +387,26 @@ async function run() {
       res.send(result)
 
     })
+
+    // update user info after accepting session by consultant
+    app.patch(`/accept-session/user/:id`, async(req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
+      const updatedDoc = {
+        $set : {
+          bookingRequest : "accepted"
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(query, updatedDoc)
+      res.send(result)
+
+    })
     // update user info after booking rejected by consultant
-    app.put(`/user/declined-session/:email`, async(req, res)=>{
-      const filter = {email : req.params.email}
-      const user = req.body
+    app.patch(`/user/declined-session/:id`, async(req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
       const updatedDoc = {
         $set : {
           bookingRequest : "rejected"
@@ -373,13 +414,10 @@ async function run() {
       }
       console.log(updatedDoc)
 
-      const result = await usersCollection.updateOne(filter, updatedDoc)
+      const result = await usersCollection.updateOne(query, updatedDoc)
       res.send(result)
 
     })
-
-
-
 
 
 
@@ -387,7 +425,6 @@ async function run() {
     app.patch(`/user/:id`, async (req, res) => {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
-      const user = req.body    
       try {
         const updatedDoc = {
           $set: {
@@ -407,15 +444,16 @@ async function run() {
         res.status(500).send({ message: "An error occurred while removing the request field." });
       }
     });
+
     // make consultant by admin
-    app.patch(`/user/make-consultant/:id`, async (req, res) => {
+    app.patch(`/make-consultant/user/:id`, async (req, res) => {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
-      const user = req.body    
       try {
         const updatedDoc = {
           $set: {
-            role: "consultant" 
+            role: "consultant" ,
+            request : "accepted"
           }
         };
     
@@ -590,21 +628,7 @@ async function run() {
     }
   );
 
-    //update Predefined Template Data from DB
-    // app.patch(`/templates/email/:id`, async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { templateItem: id };
-    //   const updatedDoc = {
-    //     $set : {
-    //       isFavorite : true
-
-    //     }
-    //   }
-    //   const result = await predefinedTemplatesCollection.findOne(query, updatedDoc);
-    //   res.send(result);
-    // });
-
-    // get all the template count from db
+ 
 
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
