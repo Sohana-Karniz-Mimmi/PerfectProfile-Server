@@ -150,10 +150,13 @@ async function run() {
     });
 
     // get all the user
-    app.get(`/user`, async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      res.send(result);
-    });
+    app.get(`/user`, async(req, res)=>{
+      const result = await usersCollection.find().toArray()
+      res.send(result)
+    })
+
+
+
     app.patch("/updateProfile/:email", async (req, res) => {
       const { email } = req.params;
       const updatedProfile = req.body;
@@ -200,6 +203,8 @@ async function run() {
         res.status(500).json({ message: "Server error" });
       }
     });
+
+   
 
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
@@ -306,48 +311,166 @@ async function run() {
       }
     });
 
-    app.patch("/user/:id", async (req, res) => {
-      const id = req.params.id;
-      const { role } = req.body;
 
-      try {
-        const result = await usersCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { role: role } } // রোল ফিল্ড আপডেট
-        );
 
-        if (result.modifiedCount > 0) {
-          res.status(200).send({ message: "User role updated successfully" });
-        } else {
-          res.status(404).send({ message: "User not found" });
+    // update user info after request to be a consultant
+    app.put(`/consultant-info/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          experience : user.experience,
+          resume : user.resume,
+          expertise : user.expertise,      
+          requestedAt: user.requestedAt,
+          request: user.request,
+  
+
         }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+
+    })
+
+
+    // update consultant info after editing profile
+    app.patch(`/consultant-info-update/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          experience : user.experience,
+         address : user.address,
+          expertise : user.expertise,
+          about: user.about,
+          facebook : user.facebook,
+          twitter : user.twitter,
+          linkdin : user.linkdin,
+          image : user.image      
+        }
+      }
+      console.log(updatedDoc)
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
+    // update user info after booking
+    app.put(`/booking-info/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          resume : user.resume,           
+         currentJob : user.currentJob,
+          currentIndustry : user.currentIndustry,
+          desiredJob : user.desiredJob, 
+          desiredIndustry : user.desiredIndustry, 
+          consultant : user.consultant,  
+          bookingRequestedAt: user.bookingRequestedAt,
+          bookingRequest : user.bookingRequest
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+
+    })
+
+    // update user info after accepting session by consultant
+    app.patch(`/accept-session/user/:id`, async(req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
+      const updatedDoc = {
+        $set : {
+          bookingRequest : "accepted"
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(query, updatedDoc)
+      res.send(result)
+
+    })
+    // update user info after booking rejected by consultant
+    app.patch(`/user/declined-session/:id`, async(req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
+      const updatedDoc = {
+        $set : {
+          bookingRequest : "rejected"
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(query, updatedDoc)
+      res.send(result)
+
+    })
+
+
+
+    // update user by id if rejected to be a consultant by admin
+    app.patch(`/user/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      try {
+        const updatedDoc = {
+          $set: {
+            request: "rejected" 
+          }
+        };
+    
+        const result = await usersCollection.updateOne(query, updatedDoc);
+    
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or request field not present." });
+        }
+    
+        res.send({ message: "Request field removed successfully", result });
       } catch (error) {
-        res.status(500).send({ message: "Error updating user role", error });
+        console.error("Error removing request field:", error);
+        res.status(500).send({ message: "An error occurred while removing the request field." });
       }
     });
 
-    // update users role
-    // update user info after request to be a consultant
-    app.put(`/consultant-info/user/:email`, async (req, res) => {
-      const filter = { email: req.params.email };
-      const user = req.body;
-      const updatedDoc = {
-        $set: {
-          name: user.name,
-          email: user.email,
-          number: user.number,
-          experience: user.experience,
-          resume: user.resume,
-          expertise: user.expertise,
-          requestedAt: user.requestedAt,
-          request: "pending",
-        },
-      };
-      console.log(updatedDoc);
-
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
+    // make consultant by admin
+    app.patch(`/make-consultant/user/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      try {
+        const updatedDoc = {
+          $set: {
+            role: "consultant" ,
+            request : "accepted"
+          }
+        };
+    
+        const result = await usersCollection.updateOne(query, updatedDoc);
+    
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or request field not present." });
+        }
+    
+        res.send({ message: "Request field removed successfully", result });
+      } catch (error) {
+        console.error("Error removing request field:", error);
+        res.status(500).send({ message: "An error occurred while removing the request field." });
+      }
     });
+    
+    
 
     /*********Payment System**********/
     // Payment intent
@@ -418,9 +541,23 @@ async function run() {
     // get payment history
 
     app.get("/payment-transaction/:email", async (req, res) => {
-      const query = { cus_email: req.params.email };
-      const result = await paymentCollection.find(query).toArray();
-      res.send(result);
+      const email = req.params.email;
+      // console.log(email);
+      const query = { cus_email: email };
+      try {
+        const result = await paymentCollection.find(query).toArray();
+        // console.log(result);
+        if (result.length === 0) {
+          return res
+            .status(404)
+            .send({ message: "No transaction found for this email" });
+        }
+        res.send(result);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Error retrieving transaction", error: err });
+      }
     });
 
     // Success payment
@@ -474,7 +611,7 @@ async function run() {
         // Calculate total amount
         let totalAmount = 0;
         payments.forEach((payment) => {
-          totalAmount += parseFloat(payment.amount / 100); // Ensure amount is a float
+          totalAmount += parseFloat(payment.amount); // Ensure amount is a float
         });
 
         // Get total number of documents for pagination info
@@ -522,7 +659,43 @@ async function run() {
         .limit(size)
         .toArray();
       res.send(result);
-    });
+    }
+  );
+
+  // Route to get total amount and all documents
+  app.get("/payments", async (req, res) => {
+    try {
+      // Query parameters from the client
+      const { page = 1, limit = 10 } = req.query;
+      const pageNumber = parseInt(page, 10); // Convert to a number
+      const limitNumber = parseInt(limit, 10); // Convert to a number
+
+      const payments = await paymentCollection
+        .find()
+        .limit(limitNumber) // Limit the results to 'limit'
+        .skip((pageNumber - 1) * limitNumber)
+        .toArray(); // Skip items for previous pages
+
+      // Calculate total amount
+      let totalAmount = 0;
+      payments.forEach((payment) => {
+        totalAmount += parseFloat(payment.amount / 100); // Ensure amount is a float
+      });
+
+      // Get total number of documents for pagination info
+      const total = await paymentCollection.countDocuments();
+
+      res.json({
+        totalAmount: totalAmount.toFixed(2), // Two decimal places for totalAmount
+        payments,
+        totalPages: Math.ceil(total / limitNumber), // Total number of pages
+        currentPage: pageNumber,
+      });
+    } catch (err) {
+      console.error("Server Error: ", err.message);
+      res.status(500).json({ message: "Server Error", error: err.message });
+    }
+  });
 
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
@@ -539,6 +712,7 @@ async function run() {
     // });
 
     // get all the template count from db
+ 
 
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
@@ -747,9 +921,23 @@ async function run() {
 
     // Get resume by user email
     app.get("/my-resume/:email", async (req, res) => {
-      const query = { user_email: req.params.email };
-      const result = await resumeCollection.find(query).toArray();
-      res.send(result);
+      const email = req.params.email;
+      // console.log(email);
+      const query = { user_email: email };
+      try {
+        const result = await resumeCollection.find(query).toArray();
+        // console.log(result);
+        if (result.length === 0) {
+          return res
+            .status(404)
+            .send({ message: "No resume found for this email" });
+        }
+        res.send(result);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Error retrieving resume", error: err });
+      }
     });
 
     // Get a single resume data from db using user id
