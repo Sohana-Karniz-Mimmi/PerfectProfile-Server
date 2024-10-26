@@ -359,10 +359,8 @@ async function run() {
         }
       }
       console.log(updatedDoc)
-
       const result = await usersCollection.updateOne(filter, updatedDoc)
       res.send(result)
-
     })
     // update user info after booking
     app.put(`/booking-info/user/:email`, async(req, res)=>{
@@ -420,9 +418,6 @@ async function run() {
       res.send(result)
 
     })
-
-
-
 
 
 
