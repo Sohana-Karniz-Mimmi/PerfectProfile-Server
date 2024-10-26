@@ -491,7 +491,6 @@ async function run() {
         res.status(500).json({ message: "Server Error", error: err.message });
       }
     });
-
     /*********Predefined Templates**********/
     //Get all Predefined Templates Data from DB
     app.get(`/predefined-templates`, async (req, res) => {
