@@ -337,6 +337,33 @@ async function run() {
       res.send(result)
 
     })
+
+
+    // update consultant info after editing profile
+    app.patch(`/consultant-info-update/user/:email`, async(req, res)=>{
+      const filter = {email : req.params.email}
+      const user = req.body
+      const updatedDoc = {
+        $set : {
+          name : user.name,
+          email : user.email,
+          number : user.number,
+          experience : user.experience,
+         address : user.address,
+          expertise : user.expertise,
+          about: user.about,
+          facebook : user.facebook,
+          twitter : user.twitter,
+          linkdin : user.linkdin,
+          image : user.image      
+        }
+      }
+      console.log(updatedDoc)
+
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+
+    })
     // update user info after booking
     app.put(`/booking-info/user/:email`, async(req, res)=>{
       const filter = {email : req.params.email}
@@ -606,21 +633,7 @@ async function run() {
     }
   );
 
-    //update Predefined Template Data from DB
-    // app.patch(`/templates/email/:id`, async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { templateItem: id };
-    //   const updatedDoc = {
-    //     $set : {
-    //       isFavorite : true
-
-    //     }
-    //   }
-    //   const result = await predefinedTemplatesCollection.findOne(query, updatedDoc);
-    //   res.send(result);
-    // });
-
-    // get all the template count from db
+ 
 
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
