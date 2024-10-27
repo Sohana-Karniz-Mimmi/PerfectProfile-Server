@@ -372,10 +372,7 @@ async function run() {
           email : user.email,
           number : user.number,
           resume : user.resume,           
-         currentJob : user.currentJob,
-          currentIndustry : user.currentIndustry,
-          desiredJob : user.desiredJob, 
-          desiredIndustry : user.desiredIndustry, 
+         resumeType : user.resumeType, 
           consultant : user.consultant,  
           bookingRequestedAt: user.bookingRequestedAt,
           bookingRequest : user.bookingRequest
