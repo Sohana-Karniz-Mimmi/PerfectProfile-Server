@@ -58,6 +58,9 @@ async function run() {
     // await client.connect();
 
     const usersCollection = client.db("PerfectProfile").collection("users");
+    const userTrendsCollection = client
+      .db("PerfectProfile")
+      .collection("userTrends");
     const predefinedTemplatesCollection = client
       .db("PerfectProfile")
       .collection("predefinedTemplates");
@@ -138,24 +141,73 @@ async function run() {
     // });
 
     // user related work
+    // app.post("/users", async (req, res) => {
+    //   const user = req.body;
+    //   const query = { email: user.email };
+    //   const existingUser = await usersCollection.findOne(query);
+    //   if (existingUser) {
+    //     return res.send({ message: "user already exists" });
+    //   }
+    //   const result = await usersCollection.insertOne(user);
+    //   res.send(result);
+    // });
+
     app.post("/users", async (req, res) => {
-      const user = req.body;
+      const user = {
+        ...req.body,
+        isActive: true,
+        createdAt: new Date(),
+      };
+
       const query = { email: user.email };
       const existingUser = await usersCollection.findOne(query);
       if (existingUser) {
-        return res.send({ message: "user already exists" });
+        return res.send({ message: "User already exists" });
       }
+
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
 
+    // User Trends
+    app.post("/user-trends", async (req, res) => {
+      const { date, new_users, active_users } = req.body;
+
+      try {
+        const newTrendData = { date, new_users, active_users };
+        const result = await userTrendsCollection.insertOne(newTrendData);
+        res
+          .status(201)
+          .send({ message: "User trends saved successfully!", result });
+      } catch (error) {
+        console.error("Error saving user trends:", error);
+        res.status(500).send({ message: "Error saving user trends." });
+      }
+    });
+
+    app.get("/user-trends", async (req, res) => {
+      try {
+        const trends = await userTrendsCollection.find().toArray();
+        res.send(trends);
+      } catch (error) {
+        console.error("Error fetching user trends:", error);
+        res.status(500).send({ message: "Error fetching user trends." });
+      }
+    });
+
+    // delete favorite templates
+    app.delete("/user/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // get all the user
-    app.get(`/user`, async(req, res)=>{
-      const result = await usersCollection.find().toArray()
-      res.send(result)
-    })
-
-
+    app.get(`/user`, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
 
     app.patch("/updateProfile/:email", async (req, res) => {
       const { email } = req.params;
@@ -204,8 +256,6 @@ async function run() {
       }
     });
 
-   
-
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
       const size = parseInt(req.query.size) || 10;
@@ -213,8 +263,14 @@ async function run() {
       const filter = req.query.filter;
       const search = req.query.search || "";
 
+      // let query = {
+      //   name: { $regex: search, $options: "i" },
+      // };
       let query = {
-        name: { $regex: search, $options: "i" },
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
       };
       if (filter) query.productName = filter;
 
@@ -244,8 +300,14 @@ async function run() {
     app.get("/users-count", async (req, res) => {
       const filter = req.query.filter;
       const search = req.query.search || "";
+      // let query = {
+      //   name: { $regex: search, $options: "i" },
+      // };
       let query = {
-        name: { $regex: search, $options: "i" },
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
       };
       if (filter) query.productName = filter;
 
@@ -311,166 +373,161 @@ async function run() {
       }
     });
 
-
-
     // update user info after request to be a consultant
-    app.put(`/consultant-info/user/:email`, async(req, res)=>{
-      const filter = {email : req.params.email}
-      const user = req.body
+    app.put(`/consultant-info/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
       const updatedDoc = {
-        $set : {
-          name : user.name,
-          email : user.email,
-          number : user.number,
-          experience : user.experience,
-          resume : user.resume,
-          expertise : user.expertise,      
+        $set: {
+          name: user.name,
+          email: user.email,
+          number: user.number,
+          experience: user.experience,
+          resume: user.resume,
+          expertise: user.expertise,
           requestedAt: user.requestedAt,
           request: user.request,
-  
+        },
+      };
+      console.log(updatedDoc);
 
-        }
-      }
-      console.log(updatedDoc)
-
-      const result = await usersCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-
-    })
-
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     // update consultant info after editing profile
-    app.patch(`/consultant-info-update/user/:email`, async(req, res)=>{
-      const filter = {email : req.params.email}
-      const user = req.body
+    app.patch(`/consultant-info-update/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
       const updatedDoc = {
-        $set : {
-          name : user.name,
-          email : user.email,
-          number : user.number,
-          experience : user.experience,
-         address : user.address,
-          expertise : user.expertise,
+        $set: {
+          name: user.name,
+          email: user.email,
+          number: user.number,
+          experience: user.experience,
+          address: user.address,
+          expertise: user.expertise,
           about: user.about,
-          facebook : user.facebook,
-          twitter : user.twitter,
-          linkdin : user.linkdin,
-          image : user.image      
-        }
-      }
-      console.log(updatedDoc)
-      const result = await usersCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-    })
+          facebook: user.facebook,
+          twitter: user.twitter,
+          linkdin: user.linkdin,
+          image: user.image,
+        },
+      };
+      console.log(updatedDoc);
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
     // update user info after booking
-    app.put(`/booking-info/user/:email`, async(req, res)=>{
-      const filter = {email : req.params.email}
-      const user = req.body
+    app.put(`/booking-info/user/:email`, async (req, res) => {
+      const filter = { email: req.params.email };
+      const user = req.body;
       const updatedDoc = {
-        $set : {
-          name : user.name,
-          email : user.email,
-          number : user.number,
-          resume : user.resume,           
-         currentJob : user.currentJob,
-          currentIndustry : user.currentIndustry,
-          desiredJob : user.desiredJob, 
-          desiredIndustry : user.desiredIndustry, 
-          consultant : user.consultant,  
+        $set: {
+          name: user.name,
+          email: user.email,
+          number: user.number,
+          resume: user.resume,
+          currentJob: user.currentJob,
+          currentIndustry: user.currentIndustry,
+          desiredJob: user.desiredJob,
+          desiredIndustry: user.desiredIndustry,
+          consultant: user.consultant,
           bookingRequestedAt: user.bookingRequestedAt,
-          bookingRequest : user.bookingRequest
-        }
-      }
-      console.log(updatedDoc)
+          bookingRequest: user.bookingRequest,
+        },
+      };
+      console.log(updatedDoc);
 
-      const result = await usersCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-
-    })
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     // update user info after accepting session by consultant
-    app.patch(`/accept-session/user/:id`, async(req, res)=>{
-      const id = req.params.id
-      const query = {_id : new ObjectId(id)}
+    app.patch(`/accept-session/user/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set : {
-          bookingRequest : "accepted"
-        }
-      }
-      console.log(updatedDoc)
+        $set: {
+          bookingRequest: "accepted",
+        },
+      };
+      console.log(updatedDoc);
 
-      const result = await usersCollection.updateOne(query, updatedDoc)
-      res.send(result)
-
-    })
+      const result = await usersCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
     // update user info after booking rejected by consultant
-    app.patch(`/user/declined-session/:id`, async(req, res)=>{
-      const id = req.params.id
-      const query = {_id : new ObjectId(id)}
+    app.patch(`/user/declined-session/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set : {
-          bookingRequest : "rejected"
-        }
-      }
-      console.log(updatedDoc)
+        $set: {
+          bookingRequest: "rejected",
+        },
+      };
+      console.log(updatedDoc);
 
-      const result = await usersCollection.updateOne(query, updatedDoc)
-      res.send(result)
-
-    })
-
-
+      const result = await usersCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
 
     // update user by id if rejected to be a consultant by admin
     app.patch(`/user/:id`, async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       try {
         const updatedDoc = {
           $set: {
-            request: "rejected" 
-          }
+            request: "rejected",
+          },
         };
-    
+
         const result = await usersCollection.updateOne(query, updatedDoc);
-    
+
         if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "User not found or request field not present." });
+          return res
+            .status(404)
+            .send({ message: "User not found or request field not present." });
         }
-    
+
         res.send({ message: "Request field removed successfully", result });
       } catch (error) {
         console.error("Error removing request field:", error);
-        res.status(500).send({ message: "An error occurred while removing the request field." });
+        res.status(500).send({
+          message: "An error occurred while removing the request field.",
+        });
       }
     });
 
     // make consultant by admin
     app.patch(`/make-consultant/user/:id`, async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       try {
         const updatedDoc = {
           $set: {
-            role: "consultant" ,
-            request : "accepted"
-          }
+            role: "consultant",
+            request: "accepted",
+          },
         };
-    
+
         const result = await usersCollection.updateOne(query, updatedDoc);
-    
+
         if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "User not found or request field not present." });
+          return res
+            .status(404)
+            .send({ message: "User not found or request field not present." });
         }
-    
+
         res.send({ message: "Request field removed successfully", result });
       } catch (error) {
         console.error("Error removing request field:", error);
-        res.status(500).send({ message: "An error occurred while removing the request field." });
+        res.status(500).send({
+          message: "An error occurred while removing the request field.",
+        });
       }
     });
-    
-    
 
     /*********Payment System**********/
     // Payment intent
@@ -625,43 +682,42 @@ async function run() {
         .limit(size)
         .toArray();
       res.send(result);
-    }
-  );
+    });
 
-  // Route to get total amount and all documents
-  app.get("/payments", async (req, res) => {
-    try {
-      // Query parameters from the client
-      const { page = 1, limit = 10 } = req.query;
-      const pageNumber = parseInt(page, 10); // Convert to a number
-      const limitNumber = parseInt(limit, 10); // Convert to a number
+    // Route to get total amount and all documents
+    app.get("/payments", async (req, res) => {
+      try {
+        // Query parameters from the client
+        const { page = 1, limit = 10 } = req.query;
+        const pageNumber = parseInt(page, 10); // Convert to a number
+        const limitNumber = parseInt(limit, 10); // Convert to a number
 
-      const payments = await paymentCollection
-        .find()
-        .limit(limitNumber) // Limit the results to 'limit'
-        .skip((pageNumber - 1) * limitNumber)
-        .toArray(); // Skip items for previous pages
+        const payments = await paymentCollection
+          .find()
+          .limit(limitNumber) // Limit the results to 'limit'
+          .skip((pageNumber - 1) * limitNumber)
+          .toArray(); // Skip items for previous pages
 
-      // Calculate total amount
-      let totalAmount = 0;
-      payments.forEach((payment) => {
-        totalAmount += parseFloat(payment.amount / 100); // Ensure amount is a float
-      });
+        // Calculate total amount
+        let totalAmount = 0;
+        payments.forEach((payment) => {
+          totalAmount += parseFloat(payment.amount / 100); // Ensure amount is a float
+        });
 
-      // Get total number of documents for pagination info
-      const total = await paymentCollection.countDocuments();
+        // Get total number of documents for pagination info
+        const total = await paymentCollection.countDocuments();
 
-      res.json({
-        totalAmount: totalAmount.toFixed(2), // Two decimal places for totalAmount
-        payments,
-        totalPages: Math.ceil(total / limitNumber), // Total number of pages
-        currentPage: pageNumber,
-      });
-    } catch (err) {
-      console.error("Server Error: ", err.message);
-      res.status(500).json({ message: "Server Error", error: err.message });
-    }
-  });
+        res.json({
+          totalAmount: totalAmount.toFixed(2), // Two decimal places for totalAmount
+          payments,
+          totalPages: Math.ceil(total / limitNumber), // Total number of pages
+          currentPage: pageNumber,
+        });
+      } catch (err) {
+        console.error("Server Error: ", err.message);
+        res.status(500).json({ message: "Server Error", error: err.message });
+      }
+    });
 
     //update Predefined Template Data from DB
     // app.patch(`/templates/email/:id`, async (req, res) => {
@@ -678,7 +734,6 @@ async function run() {
     // });
 
     // get all the template count from db
- 
 
     app.get(`/templates-count`, async (req, res) => {
       const filter = req.query.filter;
