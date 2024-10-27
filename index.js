@@ -594,6 +594,40 @@ async function run() {
       res.redirect(`${process.env.VITE_FRONTEND_API_URL}`);
     });
 
+    // Route to get total amount and all documents
+    app.get("/payments", async (req, res) => {
+      try {
+        // Query parameters from the client
+        const { page = 1, limit = 10 } = req.query;
+        const pageNumber = parseInt(page, 10); // Convert to a number
+        const limitNumber = parseInt(limit, 10); // Convert to a number
+
+        const payments = await paymentCollection
+          .find()
+          .limit(limitNumber) // Limit the results to 'limit'
+          .skip((pageNumber - 1) * limitNumber)
+          .toArray(); // Skip items for previous pages
+
+        // Calculate total amount
+        let totalAmount = 0;
+        payments.forEach((payment) => {
+          totalAmount += parseFloat(payment.amount); // Ensure amount is a float
+        });
+
+        // Get total number of documents for pagination info
+        const total = await paymentCollection.countDocuments();
+
+        res.json({
+          totalAmount: totalAmount.toFixed(2), // Two decimal places for totalAmount
+          payments,
+          totalPages: Math.ceil(total / limitNumber), // Total number of pages
+          currentPage: pageNumber,
+        });
+      } catch (err) {
+        console.error("Server Error: ", err.message);
+        res.status(500).json({ message: "Server Error", error: err.message });
+      }
+    });
     /*********Predefined Templates**********/
     //Get all Predefined Templates Data from DB
     app.get(`/predefined-templates`, async (req, res) => {
