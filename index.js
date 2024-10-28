@@ -211,26 +211,22 @@ async function run() {
 
     app.patch("/updateProfile/:email", async (req, res) => {
       const { email } = req.params;
-      const updatedProfile = req.body;
+      const { name, image } = req.body; // Only take the `name` field for update
 
       const filter = { email: email };
-
-      const updatedDoc = {
-        $set: {
-          name: updatedProfile.name,
-          email: updatedProfile.email,
-          photoURL: updatedProfile.photoURL,
-        },
-      };
+      const update = { $set: { name: name, image: image } }; // Only update `name`
 
       try {
-        const result = await usersCollection.updateOne(filter, updatedDoc);
+        const result = await usersCollection.updateOne(filter, update);
 
-        // check if the update was successful
-        if (result.modifiedCount > 0) {
+        if (result.matchedCount > 0 && result.modifiedCount > 0) {
           res
             .status(200)
-            .send({ message: "Profile updated successfully", result });
+            .send({ message: "Name updated successfully", result });
+        } else if (result.matchedCount > 0) {
+          res
+            .status(200)
+            .send({ message: "Name is already up to date", result });
         } else {
           res.status(404).send({ message: "User not found" });
         }
