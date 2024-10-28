@@ -204,10 +204,14 @@ async function run() {
     });
 
     // get all the user
-    app.get(`/user`, async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      res.send(result);
-    });
+    app.get(`/user`, async(req, res)=>{
+      const result = await usersCollection.find().toArray()
+      res.send(result)
+    })
+
+   
+
+
 
     app.patch("/updateProfile/:email", async (req, res) => {
       const { email } = req.params;
@@ -251,6 +255,17 @@ async function run() {
         res.status(500).json({ message: "Server error" });
       }
     });
+
+   
+     // get a specific user(consultant) by id
+     app.get(`/consultant/consultant-details/:id`, async(req, res)=>{
+      const id = req.params.id
+      console.log(id);
+      const query = {_id : new ObjectId(id)}
+      const result = await usersCollection.findOne(query)
+      res.send(result)
+    })
+
 
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
@@ -391,6 +406,7 @@ async function run() {
       res.send(result);
     });
 
+  
     // update consultant info after editing profile
     app.patch(`/consultant-info-update/user/:email`, async (req, res) => {
       const filter = { email: req.params.email };
@@ -404,16 +420,17 @@ async function run() {
           address: user.address,
           expertise: user.expertise,
           about: user.about,
-          facebook: user.facebook,
-          twitter: user.twitter,
-          linkdin: user.linkdin,
-          image: user.image,
-        },
-      };
-      console.log(updatedDoc);
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+          facebook : user.facebook,
+          twitter : user.twitter,
+          linkdin : user.linkdin,
+          image : user.image,
+          workExperience : user.workExperience     
+        }
+      }
+      console.log(updatedDoc)
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
     // update user info after booking
     app.put(`/booking-info/user/:email`, async (req, res) => {
       const filter = { email: req.params.email };
