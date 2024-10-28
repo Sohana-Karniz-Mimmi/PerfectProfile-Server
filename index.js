@@ -155,6 +155,8 @@ async function run() {
       res.send(result)
     })
 
+   
+
 
 
     app.patch("/updateProfile/:email", async (req, res) => {
@@ -205,6 +207,15 @@ async function run() {
     });
 
    
+     // get a specific user(consultant) by id
+     app.get(`/consultant/consultant-details/:id`, async(req, res)=>{
+      const id = req.params.id
+      console.log(id);
+      const query = {_id : new ObjectId(id)}
+      const result = await usersCollection.findOne(query)
+      res.send(result)
+    })
+
 
     // Get all users data from db for pagination, filtering and searching.
     app.get("/users", async (req, res) => {
@@ -355,7 +366,8 @@ async function run() {
           facebook : user.facebook,
           twitter : user.twitter,
           linkdin : user.linkdin,
-          image : user.image      
+          image : user.image,
+          workExperience : user.workExperience     
         }
       }
       console.log(updatedDoc)
