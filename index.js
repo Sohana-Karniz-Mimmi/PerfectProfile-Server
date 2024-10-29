@@ -490,6 +490,7 @@ async function run() {
         const updatedDoc = {
           $set: {
             request: "rejected",
+            role : "user"
           },
         };
 
