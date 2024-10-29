@@ -648,7 +648,7 @@ async function run() {
       console.log("update data", updateData);
       // return res.json({ success: true, message: 'Operation successful!', redirectUrl: 'https://perfect-profile-resume.netlify.app/predefined-templates' });
 
-      res.redirect(`${process.env.VITE_FRONTEND_API_URL}/predefined-templates`);
+      res.redirect(`${process.env.VITE_FRONTEND_API_URL}/purchase`);
     });
 
     // fail payment
